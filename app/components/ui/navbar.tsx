@@ -56,7 +56,7 @@ export function Navbar({
             <Menu className="w-5 h-5" />
           </button>
           <Link 
-            href="/" 
+            href="/dashboard" 
             className={cn(
               "text-2xl font-calendas italic tracking-tight",
               isDark ? "text-white" : "text-black"

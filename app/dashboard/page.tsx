@@ -688,10 +688,16 @@ export default function Dashboard() {
             return
           }
 
+          // Basic URL validation
+          let url = websiteUrl
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url
+          }
+
           const websiteData = {
-            title: 'Website Memory',
-            url: websiteUrl,
-            content: newNote.content,
+            title: url.split('//')[1].split('/')[0], // Use domain as title
+            url: url,
+            content: '', // Empty content since we removed fetch functionality
             user_id: user.id,
             space_id: selectedSpace.id,
             created_at: new Date().toISOString()
@@ -713,12 +719,13 @@ export default function Dashboard() {
           }
 
           try {
+            console.log('Uploading document:', documentFile.name)
             const filePath = await handleFileUpload(documentFile)
             
             const documentData = {
               title: documentFile.name,
               file_path: filePath,
-              content: newNote.content || '',
+              content: '', // Empty content since we removed extract functionality
               file_type: documentFile.type,
               file_size: documentFile.size,
               user_id: user.id,
@@ -741,32 +748,37 @@ export default function Dashboard() {
           break
 
         case 'note':
-      const noteData = {
-        title: newNote.title,
-        content: newNote.content,
+          if (!newNote.content.trim()) {
+            setError('Please enter some content for your note')
+            return
+          }
+
+          const noteData = {
+            title: newNote.title || 'Untitled Note',
+            content: newNote.content,
             user_id: user.id,
             space_id: selectedSpace.id,
             created_at: new Date().toISOString()
-      }
+          }
 
           console.log('Saving note to space:', selectedSpace.id)
-      if (editingNote) {
-        const { error } = await supabase
-          .from('notes')
-          .update({
-            ...noteData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingNote.id)
-          .eq('user_id', user.id)
+          if (editingNote) {
+            const { error } = await supabase
+              .from('notes')
+              .update({
+                ...noteData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', editingNote.id)
+              .eq('user_id', user.id)
 
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('notes')
-          .insert(noteData)
+            if (error) throw error
+          } else {
+            const { error } = await supabase
+              .from('notes')
+              .insert(noteData)
 
-        if (error) throw error
+            if (error) throw error
           }
           await fetchNotes(user.id)
           break
@@ -779,6 +791,8 @@ export default function Dashboard() {
       setShowNewNote(false)
       setEditingNote(null)
       setError(null)
+      setIsAIEnabled(false)
+      setIsGenerating(false)
     } catch (error) {
       console.error('Error saving memory:', error)
       setError('Failed to save memory. Please try again.')
@@ -916,6 +930,152 @@ export default function Dashboard() {
   const handleDocumentClick = () => {
     setActiveTab('document')
     setNewNote({ title: '', content: '' })
+  }
+
+  const handleFetchContent = async () => {
+    if (!websiteUrl) return
+
+    try {
+      setIsGenerating(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Basic URL validation
+      let url = websiteUrl
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
+      }
+
+      // Call your backend API to fetch the content
+      const response = await fetch('/api/fetch-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch content')
+      }
+
+      const { title, content } = await response.json()
+      setNewNote(prev => ({
+        ...prev,
+        title: title || 'Website Memory',
+        content: content || 'No content extracted'
+      }))
+      setError(null)
+    } catch (error) {
+      console.error('Error fetching content:', error)
+      setError('Failed to fetch website content. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Check file type
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF, DOC, DOCX, or TXT file')
+      return
+    }
+
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB')
+      return
+    }
+
+    setDocumentFile(file)
+    setError(null)
+  }
+
+  const handleExtractContent = async () => {
+    if (!documentFile) return
+
+    try {
+      setIsGenerating(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // For text files, read directly
+      if (documentFile.type === 'text/plain') {
+        const text = await documentFile.text()
+        const content = text.slice(0, 2000) // Limit content length
+
+        if (isAIEnabled) {
+          // Generate AI summary using OpenRouter
+          try {
+            const response = await fetch('/api/summarize', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ content }),
+            })
+
+            if (!response.ok) {
+              throw new Error('Failed to generate summary')
+            }
+
+            const { summary } = await response.json()
+            setNewNote(prev => ({
+              ...prev,
+              title: documentFile.name,
+              content: `${summary}\n\nOriginal Content:\n${content}`
+            }))
+          } catch (error) {
+            console.error('Error generating summary:', error)
+            setError('Failed to generate AI summary. Using original content.')
+            setNewNote(prev => ({
+              ...prev,
+              title: documentFile.name,
+              content
+            }))
+          }
+        } else {
+          setNewNote(prev => ({
+            ...prev,
+            title: documentFile.name,
+            content
+          }))
+        }
+        return
+      }
+
+      // For other document types, we'll need to upload to Supabase first
+      // and then extract content server-side
+      const formData = new FormData()
+      formData.append('file', documentFile)
+      formData.append('generateAISummary', isAIEnabled.toString())
+
+      const response = await fetch('/api/extract-document', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to extract content')
+      }
+
+      const { title, content, summary } = await response.json()
+      setNewNote(prev => ({
+        ...prev,
+        title: title || documentFile.name,
+        content: summary ? `${summary}\n\nOriginal Content:\n${content}` : content
+      }))
+      setError(null)
+    } catch (error) {
+      console.error('Error extracting content:', error)
+      setError('Failed to extract document content. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleDocumentDrop = async (e: React.DragEvent<HTMLDivElement>) => {
@@ -1178,14 +1338,14 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "p-6 rounded-xl border",
+                  "p-4 sm:p-6 rounded-xl border",
                   isDark 
                     ? "bg-black/60 border-white/10" 
                     : "bg-white/60 border-black/5"
                 )}
               >
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Add Memory</h2>
+                  <div className="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 className="text-lg sm:text-xl font-semibold">Add Memory</h2>
                     <button
                       onClick={() => {
                         setShowNewNote(false)
@@ -1202,13 +1362,13 @@ export default function Dashboard() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-12 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
                     {/* Left Column - Options */}
-                    <div className="col-span-4 space-y-4">
+                    <div className="sm:col-span-4 space-y-3 sm:space-y-4">
                       <button
                         onClick={handleWebsiteClick}
                         className={cn(
-                          "w-full p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                          "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                           isDark 
                             ? "border-white/10 hover:bg-white/5" 
                             : "border-black/10 hover:bg-black/5",
@@ -1230,7 +1390,7 @@ export default function Dashboard() {
                       <button
                         onClick={handleNoteClick}
                         className={cn(
-                          "w-full p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                          "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                           isDark 
                             ? "border-white/10 hover:bg-white/5" 
                             : "border-black/10 hover:bg-black/5",
@@ -1252,7 +1412,7 @@ export default function Dashboard() {
                       <button
                         onClick={handleDocumentClick}
                         className={cn(
-                          "w-full p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                          "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                           isDark 
                             ? "border-white/10 hover:bg-white/5" 
                             : "border-black/10 hover:bg-black/5",
@@ -1272,281 +1432,246 @@ export default function Dashboard() {
                       </button>
                     </div>
 
-                    {/* Right Column - Content Editor */}
-                    <div className="col-span-8">
-                      <div className="space-y-4">
-                        {activeTab === 'website' && (
-                          <>
-                            <h3 className="text-lg font-medium">Website or Tweet URL</h3>
-                            <input
-                              type="url"
-                              placeholder="https://supermemory.ai"
-                              value={websiteUrl}
-                              onChange={(e) => setWebsiteUrl(e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-3 rounded-lg border",
-                                isDark 
-                                  ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" 
-                                  : "bg-black/5 border-black/10 text-black placeholder:text-black/30"
-                              )}
-                            />
-                            <div className="text-sm">
-                              <span className="font-medium">Pro tip:</span>{" "}
-                              <a 
-                                href="#" 
-                                className={cn(
-                                  "text-blue-500 hover:underline",
-                                  isDark && "text-blue-400"
-                                )}
-                              >
-                                Use our Chrome extension
-                              </a>{" "}
-                              to save websites and tweets instantly
-                            </div>
-                          </>
-                        )}
-
-                        {activeTab === 'note' && (
-                          <>
-                <div className="flex items-center justify-between mb-4">
-                  <input
-                    type="text"
-                    placeholder="Note Title"
-                    value={newNote.title}
-                    onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
-                    className={cn(
-                      "flex-1 px-4 py-2 rounded-lg border mr-4",
-                      isDark 
-                        ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" 
-                        : "bg-black/5 border-black/10 text-black placeholder:text-black/30"
-                    )}
-                  />
-                  <div className="flex items-center gap-2">
-                    {isAIEnabled && (
-                      <ModelSelector
-                        selectedModel={selectedModel}
-                        onModelChange={setSelectedModel}
-                        isDark={isDark}
-                      />
-                    )}
-                    <InteractiveHoverButton
-                      onClick={() => setIsAIEnabled(!isAIEnabled)}
-                      text="AI Mode"
-                      className={cn(
-                        "w-28",
-                        isAIEnabled
-                          ? "border-black bg-black text-white hover:border-black/80 hover:bg-black/80"
-                          : isDark
-                            ? "border-white/10 text-white hover:text-black [&>div]:bg-white"
-                            : "border-black/10 text-black hover:text-white [&>div]:bg-black"
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <textarea
-                    placeholder={isAIEnabled ? "Write your note and click generate or press Enter for AI assistance..." : "Note Content"}
-                    value={newNote.content}
-                    onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                    onKeyDown={handleKeyDown}
-                    rows={8}
-                    className={cn(
-                                  "w-full px-4 py-3 rounded-lg border resize-none min-h-[200px]",
-                      isDark 
-                        ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" 
-                        : "bg-black/5 border-black/10 text-black placeholder:text-black/30",
-                                  isAIEnabled ? "pr-[100px]" : ""
-                    )}
-                  />
-                  {isAIEnabled && !isGenerating && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const fakeEvent = {
-                          key: 'Enter',
-                          shiftKey: false,
-                          preventDefault: () => {}
-                        } as React.KeyboardEvent<HTMLTextAreaElement>;
-                        handleKeyDown(fakeEvent);
-                      }}
-                      className={cn(
-                        "absolute bottom-6 right-4 p-1.5 rounded-lg transition-all duration-300",
-                        isDark 
-                          ? "bg-white/10 hover:bg-white/20 text-white/90" 
-                          : "bg-black/10 hover:bg-black/20 text-black/90",
-                      )}
-                    >
-                      <Wand2 className="w-4 h-4" />
-                    </button>
-                  )}
-                  {isGenerating && (
-                    <div className={cn(
-                      "absolute inset-0 flex items-center justify-center rounded-lg backdrop-blur-sm",
-                      isDark ? "bg-black/60" : "bg-white/60"
-                    )}>
-                      <div className={cn(
-                        "flex items-center gap-2",
-                        isDark ? "text-white/90" : "text-black/90"
-                      )}>
-                        <Sparkles className="w-4 h-4 animate-pulse" />
-                        <span>Generating...</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                          </>
-                        )}
-
-                        {activeTab === 'document' && (
-                          <>
-                            <h3 className="text-lg font-medium">Upload Document</h3>
-                            <label
-                              htmlFor="document-upload"
-                              onDragOver={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                const file = e.dataTransfer.files[0]
-                                if (file && (
-                                  file.type === 'application/pdf' || 
-                                  file.type === 'application/msword' || 
-                                  file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                                )) {
-                                  if (file.size > 10 * 1024 * 1024) {
-                                    setError('File size must be less than 10MB')
-                                    return
-                                  }
-                                  setDocumentFile(file)
-                                  setError(null)
-                                } else {
-                                  setError('Please upload a PDF, DOC, or DOCX file')
-                                }
-                              }}
-                              className={cn(
-                                "w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors",
-                                isDark 
-                                  ? "border-white/10 bg-white/5 hover:bg-white/10" 
-                                  : "border-black/10 bg-black/5 hover:bg-black/10"
-                              )}
-                            >
-                              <input
-                                type="file"
-                                id="document-upload"
-                                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (file) {
-                                    if (file.size > 10 * 1024 * 1024) {
-                                      setError('File size must be less than 10MB')
-                                      return
-                                    }
-                                    setDocumentFile(file)
-                                    setError(null)
-                                  }
-                                }}
-                              />
-                              {documentFile ? (
-                                <div className="text-center">
-                                  <div className={cn(
-                                    "p-3 rounded-full mx-auto mb-2",
-                                    isDark ? "bg-white/10" : "bg-black/10"
-                                  )}>
-                                    <File className="w-6 h-6" />
-                                  </div>
-                                  <p className="font-medium">{documentFile.name}</p>
-                                  <p className="text-xs opacity-60 mt-1">
-                                    {(documentFile.size / 1024 / 1024).toFixed(2)} MB
-                                  </p>
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      setDocumentFile(null)
-                                      setError(null)
-                                    }}
-                                    className={cn(
-                                      "text-sm mt-2 px-3 py-1 rounded",
-                                      isDark 
-                                        ? "text-red-400 hover:bg-red-400/10" 
-                                        : "text-red-600 hover:bg-red-600/10"
-                                    )}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className={cn(
-                                    "p-3 rounded-full",
-                                    isDark ? "bg-white/10" : "bg-black/10"
-                                  )}>
-                                    <File className="w-6 h-6" />
-                                  </div>
-                                  <p className="text-sm opacity-60">Click to upload or drag and drop</p>
-                                  <p className="text-xs opacity-40">PDF, DOC, DOCX (MAX. 10MB)</p>
-                                </>
-                              )}
-                            </label>
-                            {error && (
-                              <p className={cn(
-                                "text-sm mt-2",
-                                isDark ? "text-red-400" : "text-red-600"
-                              )}>
-                                {error}
-                              </p>
+                    {/* Right Column - Content */}
+                    <div className="sm:col-span-8 space-y-4">
+                      {activeTab === 'website' && (
+                        <div className="space-y-3">
+                          <input
+                            type="url"
+                            value={websiteUrl}
+                            onChange={(e) => setWebsiteUrl(e.target.value)}
+                            placeholder="Enter website URL"
+                            className={cn(
+                              "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
+                              isDark 
+                                ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                : "border-black/10 focus:border-black/20 placeholder:text-black/30"
                             )}
-                          </>
-                        )}
-                        
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "flex-1 px-4 py-2 rounded-lg border flex items-center gap-2",
-                            isDark 
-                              ? "bg-white/5 border-white/10" 
-                              : "bg-black/5 border-black/10"
-                          )}>
-                            <Box className="w-4 h-4 opacity-60" />
-                            <span className="opacity-60">Space</span>
+                          />
+                        </div>
+                      )}
+
+                      {activeTab === 'document' && (
+                        <div className="space-y-3">
+                          <div 
+                            className={cn(
+                              "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
+                              isDark 
+                                ? "border-white/10 hover:bg-white/5" 
+                                : "border-black/10 hover:bg-black/5"
+                            )}
+                            onClick={() => document.getElementById('document-upload')?.click()}
+                          >
+                            <input
+                              type="file"
+                              id="document-upload"
+                              className="hidden"
+                              onChange={handleDocumentUpload}
+                              accept=".pdf,.doc,.docx,.txt"
+                            />
+                            <div className="flex flex-col items-center gap-2">
+                              <File className="w-8 h-8 opacity-50" />
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {documentFile ? documentFile.name : 'Click to upload a document'}
+                                </p>
+                                <p className={cn(
+                                  "text-xs mt-1",
+                                  isDark ? "text-white/50" : "text-black/50"
+                                )}>
+                                  PDF, DOC, DOCX, or TXT
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      )}
 
-                        <div className="flex justify-between items-center pt-4">
-                  <button
-                    onClick={() => {
-                      setShowNewNote(false)
-                      setEditingNote(null)
-                      setNewNote({ title: '', content: '' })
-                              setWebsiteUrl('')
-                              setDocumentFile(null)
-                      setIsAIEnabled(false)
-                    }}
-                    className={cn(
-                      "px-4 py-2 rounded-lg",
-                      isDark 
-                        ? "text-white/60 hover:text-white/90" 
-                        : "text-black/60 hover:text-black/90"
-                    )}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveNote}
-                    className={cn(
-                              "px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300",
-                              isDark && "bg-white/10 text-white hover:bg-white/20"
+                      {activeTab === 'note' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <input
+                              type="text"
+                              value={newNote.title}
+                              onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                              placeholder="Title"
+                              className={cn(
+                                "flex-1 px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
+                                isDark 
+                                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                  : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                              )}
+                            />
+                            <button
+                              onClick={() => setIsAIEnabled(!isAIEnabled)}
+                              className={cn(
+                                "ml-2 p-2 rounded-lg transition-colors flex items-center gap-2",
+                                isDark 
+                                  ? isAIEnabled ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                                  : isAIEnabled ? "bg-black/10 text-black" : "text-black/60 hover:text-black hover:bg-black/5"
+                              )}
+                            >
+                              <Sparkles className="w-4 h-4" />
+                              <span className="hidden sm:inline">AI Mode</span>
+                            </button>
+                          </div>
+                          <div className="relative">
+                            <textarea
+                              value={newNote.content}
+                              onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                              onKeyDown={handleKeyDown}
+                              placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
+                              rows={6}
+                              className={cn(
+                                "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
+                                isDark 
+                                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                  : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                              )}
+                            />
+                            {isGenerating && (
+                              <div className={cn(
+                                "absolute inset-0 flex items-center justify-center rounded-lg",
+                                isDark ? "bg-black/60" : "bg-white/60"
+                              )}>
+                                <div className="flex items-center gap-2">
+                                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current" />
+                                  <span className="text-sm">Generating...</span>
+                                </div>
+                              </div>
                             )}
-                          >
-                            Add Memory
-                  </button>
+                            {isAIEnabled && !isGenerating && (
+                              <button
+                                onClick={async () => {
+                                  const content = newNote.content.trim();
+                                  if (!content) return;
+                                  
+                                  try {
+                                    setIsGenerating(true);
+                                    
+                                    if (selectedModel.provider === 'gemini') {
+                                      const aiContent = await generateNoteContent(content);
+                                      setNewNote({ ...newNote, content: aiContent });
+                                    } else {
+                                      const response = await generateOpenRouterContent(selectedModel.name, content);
+                                      if (typeof response === 'string') {
+                                        setNewNote({ ...newNote, content: response });
+                                      } else {
+                                        const reader = response.body?.getReader();
+                                        if (!reader) {
+                                          throw new Error('Response body is not readable');
+                                        }
+
+                                        const decoder = new TextDecoder();
+                                        let buffer = '';
+                                        let accumulatedContent = '';
+                                        
+                                        try {
+                                          while (true) {
+                                            const { done, value } = await reader.read();
+                                            if (done) break;
+                                            
+                                            buffer += decoder.decode(value, { stream: true });
+
+                                            while (true) {
+                                              const lineEnd = buffer.indexOf('\n');
+                                              if (lineEnd === -1) break;
+
+                                              const line = buffer.slice(0, lineEnd).trim();
+                                              buffer = buffer.slice(lineEnd + 1);
+
+                                              if (line.startsWith('data: ')) {
+                                                const data = line.slice(6);
+                                                if (data === '[DONE]') break;
+
+                                                try {
+                                                  const parsed = JSON.parse(data);
+                                                  const streamContent = parsed.choices[0].delta.content;
+                                                  if (streamContent) {
+                                                    accumulatedContent += streamContent;
+                                                    setNewNote({ ...newNote, content: accumulatedContent });
+                                                  }
+                                                } catch (e) {
+                                                  // Ignore invalid JSON
+                                                }
+                                              }
+                                            }
+                                          }
+                                        } catch (error) {
+                                          console.error('Error reading stream:', error);
+                                          setNewNote({ ...newNote, content });
+                                        } finally {
+                                          reader.releaseLock();
+                                        }
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error('Error generating AI content:', error);
+                                    setNewNote({ ...newNote, content });
+                                  } finally {
+                                    setIsGenerating(false);
+                                  }
+                                }}
+                                className={cn(
+                                  "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
+                                  isDark 
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                    : "hover:bg-black/10 text-black/60 hover:text-black"
+                                )}
+                              >
+                                <Wand2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
+                      )}
+
+                      {isAIEnabled && (
+                        <div className="flex items-center gap-2">
+                          <ModelSelector
+                            selectedModel={selectedModel}
+                            onModelChange={setSelectedModel}
+                            isDark={isDark}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <button
+                          onClick={() => {
+                            setShowNewNote(false)
+                            setEditingNote(null)
+                            setNewNote({ title: '', content: '' })
+                            setIsAIEnabled(false)
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-lg transition-colors text-sm",
+                            isDark 
+                              ? "text-white/60 hover:bg-white/5" 
+                              : "text-black/60 hover:bg-black/5"
+                          )}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveNote}
+                          disabled={
+                            activeTab === 'website' ? !websiteUrl :
+                            activeTab === 'document' ? !documentFile :
+                            !newNote.content.trim()
+                          }
+                          className={cn(
+                            "px-4 py-2 rounded-lg transition-colors text-sm font-medium",
+                            isDark 
+                              ? "bg-white text-black hover:bg-white/90 disabled:opacity-50" 
+                              : "bg-black text-white hover:bg-black/90 disabled:opacity-50"
+                          )}
+                        >
+                          {editingNote ? 'Update' : 'Save'} Memory
+                        </button>
                       </div>
                     </div>
-                </div>
+                  </div>
               </motion.div>
             )}
 
