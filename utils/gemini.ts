@@ -1,0 +1,66 @@
+import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
+
+if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+  throw new Error("Missing Gemini API Key");
+}
+
+const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-2.0-flash",
+  generationConfig: {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 1024,
+  },
+});
+
+export async function generateNoteContent(prompt: string): Promise<string> {
+  try {
+    const formattedPrompt = `You are a helpful note-taking assistant. Create a brief, original response based on the following input. Format your response with proper line breaks between paragraphs (use double line breaks) and make key points bold.
+
+Context: The user is writing notes and needs help organizing their thoughts.
+Input: ${prompt}
+
+Requirements:
+- Start each key point on a new line
+- Use double line breaks between paragraphs
+- Format 2-3 important points as bold using **bold text**
+- Make the response original and unique
+- Keep paragraphs short and focused
+- Use your own words and analysis`;
+
+    const result = await model.generateContent(formattedPrompt);
+    
+    if (!result.response.text) {
+      throw new Error("Empty response from Gemini");
+    }
+
+    let response = result.response.text();
+    
+    // Clean up the response while preserving formatting
+    response = response
+      .replace(/^(AI:|Assistant:|Response:|Note:|Requirements?:|Context:|Input:)/gim, '')
+      .trim()
+      // Ensure proper line breaks (convert single newlines to double newlines)
+      .replace(/([.!?])\s*\n(?!\n)/g, '$1\n\n')
+      // Ensure proper bold formatting
+      .replace(/\*\*([^*\n]+)\*\*/g, '**$1**')
+      // Remove any extra spaces before bold markers
+      .replace(/\s+\*\*/g, ' **')
+      // Ensure paragraphs are properly separated
+      .replace(/\n{3,}/g, '\n\n');
+
+    // Add line break before each bold item
+    response = response.replace(/([^\n])\s*(\*\*[^*]+\*\*)/g, '$1\n\n$2');
+
+    return response;
+
+  } catch (error: any) {
+    console.error('Error generating content:', error);
+    if (error?.message?.includes('Candidate was blocked') || error?.message?.includes('RECITATION')) {
+      return "I'll help you rephrase that. Please try:\n1. Breaking down your request into smaller parts\n2. Asking for analysis rather than direct information\n3. Using more general terms";
+    }
+    throw error;
+  }
+} 
