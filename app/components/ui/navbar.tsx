@@ -68,7 +68,10 @@ export function Navbar({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={onStartChat}
+            onClick={(e) => {
+              console.log('AI chat button clicked')
+              onStartChat?.()
+            }}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-300 text-sm",
               "border relative overflow-hidden group",
@@ -78,7 +81,7 @@ export function Navbar({
             )}
           >
             <div className={cn(
-              "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full",
+              "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
               isDark 
                 ? "bg-zinc-800/30" 
                 : "bg-zinc-100/80",

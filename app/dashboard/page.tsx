@@ -157,6 +157,11 @@ export default function Dashboard() {
         }
         setEmail(user.email || null)
 
+        // Get URL parameters for source navigation
+        const params = new URLSearchParams(window.location.search)
+        const sourceType = params.get('type')
+        const sourceId = params.get('id')
+
         // First fetch spaces
         const { data: spacesData, error: spacesError } = await supabase
           .from('spaces')
@@ -165,55 +170,32 @@ export default function Dashboard() {
           .order('created_at', { ascending: true })
 
         if (spacesError) throw spacesError
+        setSpaces(spacesData || [])
 
-        // If no spaces exist, create a default one
-        if (!spacesData || spacesData.length === 0) {
-          const { data: newSpace, error: createSpaceError } = await supabase
-            .from('spaces')
-            .insert([
-              {
-                name: 'My Space',
-                icon: 'home',
-                user_id: user.id,
-                color: '#3B82F6',
-                created_at: new Date().toISOString(),
-              }
-            ])
-            .select()
-            .single()
-
-          if (createSpaceError) throw createSpaceError
+        // Select the first space if available and fetch its content
+        if (spacesData && spacesData.length > 0) {
+          const firstSpace = spacesData[0]
+          setSelectedSpace(firstSpace)
           
-          if (newSpace) {
-            setSpaces([newSpace])
-            setSelectedSpace(newSpace)
-          }
-        } else {
-          setSpaces(spacesData)
-          setSelectedSpace(spacesData[0])
-        }
-
-        // Fetch content for the selected space
-        const selectedSpaceId = spacesData?.[0]?.id || null
-        if (selectedSpaceId) {
+          // Fetch all content types for the first space
           const [notesResult, websitesResult, documentsResult] = await Promise.all([
             supabase
               .from('notes')
               .select('*')
               .eq('user_id', user.id)
-              .eq('space_id', selectedSpaceId)
+              .eq('space_id', firstSpace.id)
               .order('created_at', { ascending: false }),
             supabase
               .from('websites')
               .select('*')
               .eq('user_id', user.id)
-              .eq('space_id', selectedSpaceId)
+              .eq('space_id', firstSpace.id)
               .order('created_at', { ascending: false }),
             supabase
               .from('documents')
               .select('*')
               .eq('user_id', user.id)
-              .eq('space_id', selectedSpaceId)
+              .eq('space_id', firstSpace.id)
               .order('created_at', { ascending: false })
           ])
 
@@ -222,9 +204,39 @@ export default function Dashboard() {
           if (websitesResult.error) throw websitesResult.error
           if (documentsResult.error) throw documentsResult.error
 
+          // Process documents to include public URLs
+          const documentsWithUrls = await Promise.all(
+            (documentsResult.data || []).map(async (doc) => {
+              const { data: { publicUrl } } = supabase
+                .storage
+                .from('documents')
+                .getPublicUrl(doc.file_path)
+              return { ...doc, publicUrl }
+            })
+          )
+
+          // Update state with fetched content
           setNotes(notesResult.data || [])
           setWebsites(websitesResult.data || [])
-          setDocuments(documentsResult.data || [])
+          setDocuments(documentsWithUrls)
+
+          // Handle source navigation if URL parameters are present
+          if (sourceType && sourceId) {
+            // Set the active tab based on source type
+            setActiveTab(sourceType as 'note' | 'website' | 'document')
+
+            // Find and select the source
+            if (sourceType === 'note') {
+              const note = notesResult.data?.find(n => n.id === sourceId)
+              if (note) setSelectedNote(note)
+            } else if (sourceType === 'document') {
+              const doc = documentsWithUrls.find(d => d.id === sourceId)
+              if (doc) setSelectedDocument(doc)
+            } else if (sourceType === 'website') {
+              const website = websitesResult.data?.find(w => w.id === sourceId)
+              if (website) setSelectedWebsite(website)
+            }
+          }
         }
       } catch (error) {
         console.error('Error initializing app:', error)
@@ -548,8 +560,7 @@ export default function Dashboard() {
   }
 
   const handleStartChat = () => {
-    // TODO: Implement chat functionality
-    console.log('Starting AI chat...')
+    router.push('/chat')
   }
 
   const handleNewNote = () => {

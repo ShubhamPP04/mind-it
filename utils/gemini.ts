@@ -17,18 +17,21 @@ const model = genAI.getGenerativeModel({
 
 export async function generateNoteContent(prompt: string): Promise<string> {
   try {
-    const formattedPrompt = `You are a helpful note-taking assistant. Create a brief, original response based on the following input. Format your response with proper line breaks between paragraphs (use double line breaks) and make key points bold.
+    const formattedPrompt = `You are a helpful AI assistant with access to the user's saved content (notes, websites, and documents). When answering questions, use the provided content as context and cite your sources.
 
-Context: The user is writing notes and needs help organizing their thoughts.
-Input: ${prompt}
+If the input contains saved content (indicated by [NOTE], [WEBSITE], or [DOCUMENT] tags), use that information to provide a more accurate and contextual response. Always reference the sources you used in your response.
 
-Requirements:
+If no saved content is provided or if the question can't be answered using the saved content alone, provide a general response based on your knowledge.
+
+Guidelines:
 - Start each key point on a new line
 - Use double line breaks between paragraphs
 - Format 2-3 important points as bold using **bold text**
-- Make the response original and unique
 - Keep paragraphs short and focused
-- Use your own words and analysis`;
+- Use your own words while accurately representing the source material
+- When citing sources, mention them naturally in your response
+
+Input: ${prompt}`;
 
     const result = await model.generateContent(formattedPrompt);
     
@@ -40,7 +43,7 @@ Requirements:
     
     // Clean up the response while preserving formatting
     response = response
-      .replace(/^(AI:|Assistant:|Response:|Note:|Requirements?:|Context:|Input:)/gim, '')
+      .replace(/^(AI:|Assistant:|Response:|Note:|Requirements?:|Context:|Input:|Guidelines?:)/gim, '')
       .trim()
       // Ensure proper line breaks (convert single newlines to double newlines)
       .replace(/([.!?])\s*\n(?!\n)/g, '$1\n\n')
