@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { BackgroundPaths } from "@/components/ui/background-paths"
 import { StarBorder } from "@/components/ui/star-border"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { Check } from "lucide-react"
+import { Check, Eye, EyeOff } from "lucide-react"
 import { signIn } from "@/app/auth/actions"
 import { useRouter } from "next/navigation"
 
@@ -16,6 +16,7 @@ export default function SignIn() {
   const [error, setError] = useState("")
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === "dark" : false
   const router = useRouter()
@@ -170,16 +171,32 @@ export default function SignIn() {
                   <div className="relative group/input">
                     <input 
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       className={cn(
-                        "w-full px-4 py-3 rounded-xl transition-all duration-300",
+                        "w-full px-4 py-3 rounded-xl transition-all duration-300 pr-12",
                         isDark 
                           ? "bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:ring-white/20 group-hover/input:border-white/20" 
                           : "bg-black/5 border-black/10 text-black placeholder:text-black/20 focus:ring-black/20 group-hover/input:border-black/20",
                         "border focus:outline-none focus:ring-2"
                       )}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className={cn(
+                        "absolute right-3 top-1/2 -translate-y-1/2 transition-colors",
+                        isDark 
+                          ? "text-white/40 hover:text-white/60" 
+                          : "text-black/40 hover:text-black/60"
+                      )}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
                   </div>
                 </div>
 

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
-import { Check } from "lucide-react"
+import { Check, Eye, EyeOff } from "lucide-react"
 import { BackgroundPaths } from "@/components/ui/background-paths"
 import { StarBorder } from "@/components/ui/star-border"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -16,6 +16,8 @@ export default function SignUp() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [mounted, setMounted] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
   const router = useRouter()
@@ -32,22 +34,31 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
+    setIsCreating(true)
 
     if (!agreedToTerms) {
       setError('Please agree to the Terms of Service and Privacy Policy')
+      setIsCreating(false)
       return
     }
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
-    const result = await signUp(formData)
     
-    if (result?.error) {
-      setError(result.error)
-    } else if (result?.success) {
-      // Store email in localStorage for the verify-email page
-      localStorage.setItem('signUpEmail', email)
-      router.push('/verify-email')
+    try {
+      const result = await signUp(formData)
+      
+      if (result?.error) {
+        setError(result.error)
+      } else if (result?.success) {
+        // Store email in localStorage for the verify-email page
+        localStorage.setItem('signUpEmail', email)
+        router.push('/verify-email')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -100,7 +111,9 @@ export default function SignUp() {
                   <div className="relative group/input">
                     <input 
                       type="text"
+                      name="name"
                       placeholder="Enter your name"
+                      required
                       className="w-full px-4 py-3 bg-zinc-100/50 dark:bg-white/5 border border-zinc-200 
                                dark:border-white/10 rounded-xl text-zinc-900 dark:text-white 
                                placeholder:text-zinc-400 dark:placeholder:text-white/20 
@@ -133,15 +146,27 @@ export default function SignUp() {
                   <div className="relative group/input">
                     <input 
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="Create a password"
                       className="w-full px-4 py-3 bg-zinc-100/50 dark:bg-white/5 border border-zinc-200 
                                dark:border-white/10 rounded-xl text-zinc-900 dark:text-white 
                                placeholder:text-zinc-400 dark:placeholder:text-white/20 
                                focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:focus:ring-white/20 
                                transition-all duration-300 group-hover/input:border-zinc-300 
-                               dark:group-hover/input:border-white/20"
+                               dark:group-hover/input:border-white/20 pr-12"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 
+                               dark:text-white/40 dark:hover:text-white/60 transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -190,8 +215,9 @@ export default function SignUp() {
                   className="w-full"
                   color={isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(161, 161, 170, 0.8)"}
                   speed="4s"
+                  disabled={isCreating}
                 >
-                  Create Account
+                  {isCreating ? "Creating..." : "Create Account"}
                 </StarBorder>
               </form>
 

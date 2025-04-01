@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Edit2, PlusCircle, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence, useMotionValue, Reorder, useDragControls } from 'framer-motion'
+import { Edit2, PlusCircle, Trash2, GripVertical, GripHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AVAILABLE_ICONS } from '@/lib/icons'
 import type { Space } from '@/lib/types'
@@ -33,11 +33,27 @@ export function SpacesSidebar({
   const [editedName, setEditedName] = useState('')
   const [editedIcon, setEditedIcon] = useState('')
   const [mounted, setMounted] = useState(false)
+  const width = useMotionValue(240)
+  const [isDragging, setIsDragging] = useState(false)
+  const [orderedSpaces, setOrderedSpaces] = useState(spaces)
+  const [draggedSpace, setDraggedSpace] = useState<string | null>(null)
 
   // Handle initial mount
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    setOrderedSpaces(spaces)
+  }, [spaces])
+
+  const handleDragStart = (spaceId: string) => {
+    setDraggedSpace(spaceId)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedSpace(null)
+  }
 
   const handleSpaceClick = (space: Space) => {
     onSpaceSelect(space)
@@ -60,38 +76,79 @@ export function SpacesSidebar({
   return (
     <motion.div
       initial={false}
-      animate={{ width: isOpen ? "240px" : "0px" }}
+      animate={{ width: isOpen ? width.get() : "0px" }}
+      style={{ width: isOpen ? width : "0px" }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "h-screen border-r overflow-hidden flex flex-col",
+        "h-screen border-r overflow-hidden flex flex-col relative z-[100]",
         isDark ? "border-white/10" : "border-black/5",
         !mounted && isOpen && "w-[240px]" // Prevent initial animation flash
       )}
     >
+      {/* Drag Handle */}
+      {isOpen && (
+        <div
+          onMouseDown={() => {}}
+          onTouchStart={() => {}}
+          className={cn(
+            "absolute right-0 top-0 w-4 h-full cursor-col-resize hover:bg-gradient-to-r",
+            isDark 
+              ? "from-transparent via-white/5 to-white/10" 
+              : "from-transparent via-black/5 to-black/10",
+            isDragging && (isDark ? "bg-white/10" : "bg-black/10")
+          )}
+          style={{ touchAction: 'none' }}
+        >
+          <div className={cn(
+            "absolute top-1/2 -translate-y-1/2 right-0 w-4 flex items-center justify-center",
+            "opacity-0 hover:opacity-100 transition-opacity",
+            isDragging && "opacity-100"
+          )}>
+            <GripVertical className={cn(
+              "w-4 h-4",
+              isDark ? "text-white/40" : "text-black/40"
+            )} />
+          </div>
+        </div>
+      )}
+
       {/* Spaces List */}
       <div className="flex-1 overflow-y-auto">
         <nav className="p-2 flex flex-col gap-1">
-          <ul className="flex-1 space-y-1 list-none">
-            {spaces.map((space) => (
-              <li 
-                key={space.id} 
-                className="flex items-center gap-1"
+          <Reorder.Group 
+            axis="y" 
+            values={orderedSpaces} 
+            onReorder={setOrderedSpaces}
+            className="flex-1 space-y-1 list-none"
+          >
+            {orderedSpaces.map((space) => (
+              <Reorder.Item
+                key={space.id}
+                value={space}
+                dragListener={false}
+                dragControls={useDragControls()}
+                onDragStart={() => handleDragStart(space.id)}
+                onDragEnd={handleDragEnd}
+                className={cn(
+                  "flex items-center gap-1 rounded-md transition-colors",
+                  isDark 
+                    ? selectedSpace?.id === space.id
+                      ? "bg-white/10 text-white"
+                      : "hover:bg-white/5 text-white/60"
+                    : selectedSpace?.id === space.id
+                      ? "bg-black/10 text-black"
+                      : "hover:bg-black/5 text-black/60",
+                  draggedSpace === space.id && (
+                    isDark ? "bg-white/20" : "bg-black/20"
+                  )
+                )}
               >
                 <div 
-                  className={cn(
-                    "flex-1 flex items-center gap-1",
-                    isDark 
-                      ? selectedSpace?.id === space.id
-                        ? "bg-white/10 text-white"
-                        : "hover:bg-white/5 text-white/60"
-                      : selectedSpace?.id === space.id
-                        ? "bg-black/10 text-black"
-                        : "hover:bg-black/5 text-black/60"
-                  )}
+                  className="flex-1 flex items-center gap-1 group"
                 >
                   <div 
                     onClick={() => handleSpaceClick(space)}
-                    className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors cursor-pointer"
+                    className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-center w-4 h-4">
                       {AVAILABLE_ICONS[space.icon]?.({
@@ -110,6 +167,20 @@ export function SpacesSidebar({
                     <span className="truncate">{space.name}</span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 pr-2">
+                    <motion.div
+                      className={cn(
+                        "p-1 rounded-md transition-colors cursor-grab active:cursor-grabbing touch-none",
+                        isDark 
+                          ? "hover:bg-white/10 hover:text-white" 
+                          : "hover:bg-black/10 hover:text-black"
+                      )}
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        handleDragStart(space.id)
+                      }}
+                    >
+                      <GripHorizontal className="w-3 h-3" />
+                    </motion.div>
                     <div
                       onClick={(e) => handleEditClick(e, space)}
                       className={cn(
@@ -136,9 +207,9 @@ export function SpacesSidebar({
                     </div>
                   </div>
                 </div>
-              </li>
+              </Reorder.Item>
             ))}
-          </ul>
+          </Reorder.Group>
         </nav>
       </div>
 
