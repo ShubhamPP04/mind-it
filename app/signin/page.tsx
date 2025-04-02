@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Check, Eye, EyeOff } from "lucide-react"
 import { signIn } from "@/app/auth/actions"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export default function SignIn() {
   const [rememberMe, setRememberMe] = useState(false)
@@ -89,24 +90,34 @@ export default function SignIn() {
           transition={{ duration: 0.8 }}
           className="w-full max-w-md"
         >
-          {/* Glass Card with gradient border */}
+          {/* Glass Card with enhanced gradient border */}
           <div className="relative group">
-            {/* Gradient border effect */}
+            {/* Improved gradient border effect */}
             <div className={cn(
-              "absolute -inset-0.5 rounded-3xl opacity-50 group-hover:opacity-70 transition duration-1000 group-hover:duration-200 animate-tilt blur-xl",
+              "absolute -inset-0.5 rounded-3xl opacity-50 group-hover:opacity-80 transition duration-1000 group-hover:duration-200 blur-2xl",
               isDark 
-                ? "bg-gradient-to-r from-black/40 to-black/20"
-                : "bg-gradient-to-r from-black/10 to-black/5"
+                ? "bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-pink-500/30"
+                : "bg-gradient-to-r from-indigo-400/20 via-purple-400/20 to-pink-400/20"
             )}></div>
             
             <div className={cn(
               "relative backdrop-blur-2xl p-8 rounded-3xl border shadow-2xl transition-all duration-500",
               isDark 
-                ? "bg-black/60 border-white/10" 
-                : "bg-white/60 border-black/5"
+                ? "bg-black/60 border-white/10 shadow-[0_0_30px_rgba(120,120,255,0.05)]" 
+                : "bg-white/60 border-black/5 shadow-[0_0_30px_rgba(140,140,160,0.1)]"
             )}>
+              {/* Subtle background pattern */}
+              <div className="absolute inset-0 rounded-3xl overflow-hidden opacity-10">
+                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  <pattern id="subtle-pattern" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <circle cx="10" cy="10" r="0.5" fill={isDark ? "white" : "black"} />
+                  </pattern>
+                  <rect x="0" y="0" width="100%" height="100%" fill="url(#subtle-pattern)" />
+                </svg>
+              </div>
+              
               {/* Logo/Brand */}
-              <div className="flex justify-center mb-6">
+              <div className="flex justify-center mb-6 relative z-10">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -248,8 +259,10 @@ export default function SignIn() {
                       Remember me
                     </span>
                   </label>
-                  <button 
+                  <motion.button 
                     type="button"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     className={cn(
                       "text-sm transition-colors duration-500",
                       isDark 
@@ -258,48 +271,59 @@ export default function SignIn() {
                     )}
                   >
                     Forgot password?
-                  </button>
+                  </motion.button>
                 </div>
 
-                <StarBorder 
-                  type="submit"
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   className="w-full"
-                  color={isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.8)"}
-                  speed="4s"
-                  disabled={isLoading}
                 >
-                  <div className="flex items-center justify-center space-x-2">
-                    {isLoading ? (
-                      <>
-                        <div className="w-5 h-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        <span>Signing in...</span>
-                      </>
-                    ) : (
-                      <span>Sign In</span>
-                    )}
-                  </div>
-                </StarBorder>
+                  <StarBorder 
+                    type="submit"
+                    className="w-full"
+                    color={isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.8)"}
+                    speed="4s"
+                    disabled={isLoading}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      {isLoading ? (
+                        <>
+                          <div className="w-5 h-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          <span>Signing in...</span>
+                        </>
+                      ) : (
+                        <span>Sign In</span>
+                      )}
+                    </div>
+                  </StarBorder>
+                </motion.div>
               </form>
 
               {/* Footer */}
-              <div className="mt-8 text-center">
+              <div className="mt-8 text-center relative z-20">
                 <p className={cn(
                   "transition-colors duration-500",
                   isDark ? "text-white/40" : "text-black/40"
                 )}>
                   Don't have an account?{" "}
-                  <button 
-                    type="button"
-                    onClick={() => window.location.href = '/signup'}
-                    className={cn(
-                      "font-medium transition-colors duration-500",
-                      isDark 
-                        ? "text-white/60 hover:text-white/80" 
-                        : "text-black/60 hover:text-black/80"
-                    )}
+                  <motion.div 
+                    className="inline-block"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    Sign up
-                  </button>
+                    <Link 
+                      href="/signup"
+                      className={cn(
+                        "font-medium transition-colors duration-500 relative z-20 inline-block px-1 py-0.5",
+                        isDark 
+                          ? "text-white/60 hover:text-white/80" 
+                          : "text-black/60 hover:text-black/80"
+                      )}
+                    >
+                      Sign up
+                    </Link>
+                  </motion.div>
                 </p>
               </div>
 

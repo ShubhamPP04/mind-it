@@ -10,6 +10,7 @@ import { signUp } from "@/app/auth/actions"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function SignUp() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -78,14 +79,31 @@ export default function SignUp() {
           transition={{ duration: 0.8 }}
           className="w-full max-w-md"
         >
-          {/* Glass Card with gradient border */}
+          {/* Glass Card with enhanced gradient border */}
           <div className="relative group">
-            {/* Gradient border effect */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-zinc-400/30 to-zinc-300/20 dark:from-black/40 dark:to-black/20 rounded-3xl opacity-50 group-hover:opacity-70 transition duration-1000 group-hover:duration-200 animate-tilt blur-xl"></div>
+            {/* Improved gradient border effect */}
+            <div className={cn(
+              "absolute -inset-0.5 rounded-3xl opacity-50 group-hover:opacity-80 transition duration-1000 group-hover:duration-200 blur-2xl",
+              isDark 
+                ? "bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-pink-500/30"
+                : "bg-gradient-to-r from-indigo-400/20 via-purple-400/20 to-pink-400/20"
+            )}></div>
             
-            <div className="relative backdrop-blur-2xl bg-white/60 dark:bg-black/60 p-8 rounded-3xl border border-zinc-200/50 dark:border-white/10 shadow-2xl transition-colors duration-500">
+            <div className="relative backdrop-blur-2xl bg-white/60 dark:bg-black/60 p-8 rounded-3xl 
+                          border border-zinc-200/50 dark:border-white/10 shadow-2xl transition-colors 
+                          duration-500 dark:shadow-[0_0_30px_rgba(120,120,255,0.05)] shadow-[0_0_30px_rgba(140,140,160,0.1)]">
+              {/* Subtle background pattern */}
+              <div className="absolute inset-0 rounded-3xl overflow-hidden opacity-10">
+                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  <pattern id="subtle-pattern" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <circle cx="10" cy="10" r="0.5" fill={isDark ? "white" : "black"} />
+                  </pattern>
+                  <rect x="0" y="0" width="100%" height="100%" fill="url(#subtle-pattern)" />
+                </svg>
+              </div>
+              
               {/* Logo/Brand */}
-              <div className="flex justify-center mb-6">
+              <div className="flex justify-center mb-6 relative z-10">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -210,29 +228,40 @@ export default function SignUp() {
                   </div>
                 )}
 
-                <StarBorder 
-                  type="submit"
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   className="w-full"
-                  color={isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(161, 161, 170, 0.8)"}
-                  speed="4s"
-                  disabled={isCreating}
                 >
-                  {isCreating ? "Creating..." : "Create Account"}
-                </StarBorder>
+                  <StarBorder 
+                    type="submit"
+                    className="w-full"
+                    color={isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(161, 161, 170, 0.8)"}
+                    speed="4s"
+                    disabled={isCreating}
+                  >
+                    {isCreating ? "Creating..." : "Create Account"}
+                  </StarBorder>
+                </motion.div>
               </form>
 
               {/* Footer */}
-              <div className="mt-8 text-center">
+              <div className="mt-8 text-center relative z-20">
                 <p className="text-zinc-500 dark:text-white/40 transition-colors duration-500">
                   Already have an account?{" "}
-                  <button 
-                    type="button"
-                    onClick={() => window.location.href = '/signin'}
-                    className="text-zinc-700 hover:text-zinc-900 dark:text-white/60 dark:hover:text-white/80 
-                             transition-colors font-medium"
+                  <motion.div 
+                    className="inline-block"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    Sign in
-                  </button>
+                    <Link 
+                      href="/signin"
+                      className="text-zinc-700 hover:text-zinc-900 dark:text-white/60 dark:hover:text-white/80 
+                               transition-colors font-medium relative z-20 inline-block px-1 py-0.5"
+                    >
+                      Sign in
+                    </Link>
+                  </motion.div>
                 </p>
               </div>
             </div>

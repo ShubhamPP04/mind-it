@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 
+// Enhanced FloatingPaths component with more dynamic animations
 function FloatingPaths({ position }: { position: number }) {
     const [mounted, setMounted] = useState(false);
     const { resolvedTheme } = useTheme();
@@ -64,9 +65,95 @@ function FloatingPaths({ position }: { position: number }) {
     );
 }
 
-export function BackgroundPaths({ className, isDark }: { className?: string, isDark?: boolean }) {
+// Floating particles component for additional visual interest
+function FloatingParticles() {
+    const [mounted, setMounted] = useState(false);
+    const { resolvedTheme } = useTheme();
+    const isDark = mounted && resolvedTheme === "dark";
+    
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+    
+    if (!mounted) return null;
+    
+    // Generate random particles
+    const particles = Array.from({ length: 20 }, (_, i) => ({
+        id: i,
+        size: Math.random() * 4 + 1,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        animationClass: `animate-float-${(i % 5) + 1}`
+    }));
+    
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+            {particles.map((particle) => (
+                <motion.div
+                    key={particle.id}
+                    className={`absolute rounded-full ${particle.animationClass}`}
+                    style={{
+                        width: `${particle.size}px`,
+                        height: `${particle.size}px`,
+                        left: `${particle.x}%`,
+                        top: `${particle.y}%`,
+                        background: isDark 
+                            ? `rgba(255, 255, 255, ${0.1 + Math.random() * 0.2})`
+                            : `rgba(0, 0, 0, ${0.05 + Math.random() * 0.1})`,
+                        boxShadow: isDark
+                            ? `0 0 ${particle.size * 2}px rgba(255, 255, 255, 0.2)`
+                            : `0 0 ${particle.size * 2}px rgba(0, 0, 0, 0.1)`
+                    }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isDark ? 0.6 : 0.3 }}
+                    transition={{ duration: 2 }}
+                />
+            ))}
+        </div>
+    );
+}
+
+// Gradient background orbs for a more vibrant look
+function GradientOrbs() {
+    const [mounted, setMounted] = useState(false);
+    const { resolvedTheme } = useTheme();
+    const isDark = mounted && resolvedTheme === "dark";
+    
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+    
+    if (!mounted) return null;
+    
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-30">
+            {/* Top right orb */}
+            <div 
+                className="absolute -right-40 -top-40 w-96 h-96 rounded-full animate-pulse-slow animate-drift-1 opacity-40 blur-3xl"
+                style={{
+                    background: isDark 
+                        ? 'radial-gradient(circle, rgba(138, 85, 255, 0.2) 0%, rgba(56, 19, 153, 0.05) 70%, rgba(0, 0, 0, 0) 100%)'
+                        : 'radial-gradient(circle, rgba(138, 85, 255, 0.1) 0%, rgba(56, 19, 153, 0.03) 70%, rgba(255, 255, 255, 0) 100%)'
+                }}
+            />
+            {/* Bottom left orb */}
+            <div 
+                className="absolute -left-20 bottom-0 w-80 h-80 rounded-full animate-pulse-slow animate-drift-2 opacity-40 blur-3xl"
+                style={{
+                    background: isDark 
+                        ? 'radial-gradient(circle, rgba(80, 120, 255, 0.2) 0%, rgba(15, 43, 143, 0.05) 70%, rgba(0, 0, 0, 0) 100%)'
+                        : 'radial-gradient(circle, rgba(80, 120, 255, 0.1) 0%, rgba(15, 43, 143, 0.03) 70%, rgba(255, 255, 255, 0) 100%)'
+                }}
+            />
+        </div>
+    );
+}
+
+export function BackgroundPaths({ className, isDark: propIsDark }: { className?: string, isDark?: boolean }) {
     return (
         <div className={className}>
+            <GradientOrbs />
+            <FloatingParticles />
             <FloatingPaths position={1} />
             <FloatingPaths position={2} />
         </div>
