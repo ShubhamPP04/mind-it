@@ -3,7 +3,7 @@
 import React, { useState } from "react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { LogOut, MessageSquarePlus, Menu, User, ChevronDown, Settings } from 'lucide-react'
+import { LogOut, MessageSquarePlus, Menu, User, ChevronDown, Settings, Sparkle, Star, Bot, Zap, Brain } from 'lucide-react'
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { useUser } from '@/contexts/UserContext'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -39,26 +39,26 @@ export function Navbar({
     )}>
       <nav
         className={cn(
-          "mx-auto max-w-4xl flex h-14 items-center justify-between px-4",
+          "mx-auto max-w-4xl flex h-14 items-center justify-between px-2 sm:px-4",
           className
         )}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={onToggleSidebar}
             className={cn(
-              "p-2 rounded-lg transition-colors",
+              "p-1.5 sm:p-2 rounded-lg transition-colors",
               isDark 
                 ? "hover:bg-zinc-800 text-zinc-400" 
                 : "hover:bg-zinc-100 text-zinc-600"
             )}
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           <Link 
             href="/dashboard" 
             className={cn(
-              "text-2xl font-calendas italic tracking-tight",
+              "text-xl sm:text-2xl font-calendas italic tracking-tight",
               isDark ? "text-white" : "text-black"
             )}
           >
@@ -66,59 +66,67 @@ export function Navbar({
           </Link>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           <button
             onClick={(e) => {
-              console.log('AI chat button clicked')
+              console.log('Memory button clicked')
               onStartChat?.()
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-300 text-sm",
-              "border relative overflow-hidden group",
+              "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md transition-all duration-300 text-xs sm:text-sm",
+              "border relative overflow-hidden group whitespace-nowrap",
               isDark 
-                ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400" 
-                : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
+                ? "border-purple-700/40 text-purple-300" 
+                : "border-purple-300 text-purple-700"
             )}
           >
             <div className={cn(
               "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
               isDark 
-                ? "bg-zinc-800/30" 
-                : "bg-zinc-100/80",
+                ? "bg-purple-900/30" 
+                : "bg-purple-100/80",
               "origin-left"
             )} />
-            <MessageSquarePlus className={cn(
-              "w-3.5 h-3.5 transition-all duration-300 relative z-10",
-              "group-hover:translate-x-0.5"
-            )} />
+            <div className="relative z-10 transition-all duration-300 w-3 sm:w-3.5 h-3 sm:h-3.5 group-hover:translate-x-0.5 group-hover:scale-110">
+              <Zap className={cn(
+                "w-3 h-3 sm:w-3.5 sm:h-3.5 absolute transition-all duration-300",
+                "group-hover:opacity-0 group-hover:scale-75",
+                isDark ? "text-purple-300" : "text-purple-700"
+              )} />
+              <Bot className={cn(
+                "w-3 h-3 sm:w-3.5 sm:h-3.5 absolute opacity-0 scale-75 transition-all duration-300",
+                "group-hover:opacity-100 group-hover:scale-100",
+                isDark ? "text-purple-300" : "text-purple-700"
+              )} />
+            </div>
             <span className={cn(
               "font-medium relative z-10 transition-all duration-300",
               "group-hover:translate-x-0.5"
-            )}>AI Chat</span>
+            )}>Memory</span>
           </button>
-          <ThemeToggle />
+          <ThemeToggle className="hidden sm:flex" />
           <div className="relative">
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200",
+                "flex items-center gap-1 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200",
                 isDark 
                   ? "hover:bg-zinc-800/90 text-zinc-400" 
                   : "hover:bg-zinc-100/90 text-zinc-600"
               )}
             >
-              <Avatar className="h-8 w-8 transition-all duration-300 hover:scale-105">
+              <Avatar className="h-6 w-6 sm:h-8 sm:w-8 transition-all duration-300 hover:scale-105">
                 <AvatarImage 
                   src={profile?.avatar_url || undefined} 
                   alt="User avatar" 
                   className="object-cover object-center"
                 />
                 <AvatarFallback className="animate-pulse bg-muted">
-                  <User className="h-4 w-4 text-muted-foreground/60" />
+                  <User className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground/60" />
                 </AvatarFallback>
               </Avatar>
               <ChevronDown className={cn(
-                "w-4 h-4 transition-transform duration-300",
+                "w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-300",
                 isProfileOpen && "transform rotate-180"
               )} />
             </button>

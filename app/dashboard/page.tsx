@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from "framer-motion"
@@ -18,7 +18,7 @@ import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button
 import { ShimmerButton } from "@/components/ui/shimmer-button"
 import { Navbar } from "../components/ui/navbar"
 import { SpacesSidebar } from "@/components/ui/spaces-sidebar"
-import { AVAILABLE_ICONS } from '@/lib/constants'
+import { AVAILABLE_ICONS } from '@/lib/icons'
 import { MenuBar } from "../components/ui/menu-bar"
 import { Globe } from "lucide-react"
 import Image from 'next/image'
@@ -108,6 +108,13 @@ export default function Dashboard() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
+  const [isCreatingSpace, setIsCreatingSpace] = useState(false)
+  const [newSpaceName, setNewSpaceName] = useState('')
+  const [selectedIcon, setSelectedIcon] = useState('hash')
+  const [longPressSpace, setLongPressSpace] = useState<Space | null>(null);
+  const [showSpaceMenu, setShowSpaceMenu] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressDuration = 500; // ms
 
   const contentTypeItems = [
     {
@@ -177,10 +184,10 @@ export default function Dashboard() {
 
         // First fetch spaces
         const { data: spacesData, error: spacesError } = await supabase
-          .from('spaces')
-          .select('*')
+        .from('spaces')
+        .select('*')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: true })
+        .order('created_at', { ascending: true })
 
         if (spacesError) throw spacesError
         setSpaces(spacesData || [])
@@ -785,25 +792,25 @@ export default function Dashboard() {
           }
 
           try {
-            const noteData = {
+      const noteData = {
               title: newNote.title || 'Untitled Note',
-              content: newNote.content,
-              user_id: user.id,
-              space_id: selectedSpace.id,
+        content: newNote.content,
+            user_id: user.id,
+            space_id: selectedSpace.id,
               created_at: new Date().toISOString(),
               image_url: newNote.image_url || null
-            }
+      }
 
             console.log('Saving note to space:', selectedSpace.id, 'with data:', noteData)
-            if (editingNote) {
-              const { error } = await supabase
-                .from('notes')
-                .update({
-                  ...noteData,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', editingNote.id)
-                .eq('user_id', user.id)
+      if (editingNote) {
+        const { error } = await supabase
+          .from('notes')
+          .update({
+            ...noteData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingNote.id)
+          .eq('user_id', user.id)
 
               if (error) {
                 console.error('Specific error updating note:', JSON.stringify(error))
@@ -811,16 +818,16 @@ export default function Dashboard() {
               } else {
                 await fetchNotes(user.id)
               }
-            } else {
-              const { error } = await supabase
-                .from('notes')
-                .insert(noteData)
+      } else {
+        const { error } = await supabase
+          .from('notes')
+          .insert(noteData)
 
               if (error) {
                 console.error('Specific error inserting note:', JSON.stringify(error))
                 throw error
               } else {
-                await fetchNotes(user.id)
+          await fetchNotes(user.id)
               }
             }
           } catch (error) {
@@ -1339,6 +1346,29 @@ export default function Dashboard() {
     }
   }
 
+  // Handle long press on space in mobile view
+  const handleTouchStart = (space: Space) => {
+    longPressTimer.current = setTimeout(() => {
+      setLongPressSpace(space);
+      setShowSpaceMenu(true);
+    }, longPressDuration);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleDeleteSpaceFromMobile = () => {
+    if (longPressSpace && confirm(`Are you sure you want to delete "${longPressSpace.name}"? This will delete all content inside this space.`)) {
+      handleDeleteSpace(longPressSpace.id);
+    }
+    setShowSpaceMenu(false);
+    setLongPressSpace(null);
+  };
+
   if (!mounted || loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -1367,6 +1397,8 @@ export default function Dashboard() {
     <div className="relative flex h-screen overflow-hidden">
       <BackgroundPaths className="fixed inset-0 -z-20 pointer-events-none" isDark={isDark} />
       <div className="flex w-full relative z-10">
+        {/* Desktop Sidebar */}
+        <div className="hidden md:block">
       <SpacesSidebar
         spaces={spaces}
         selectedSpace={selectedSpace}
@@ -1377,6 +1409,7 @@ export default function Dashboard() {
         isDark={isDark}
         isOpen={isSidebarOpen}
       />
+        </div>
       <div className="flex-1 flex flex-col min-h-screen">
         <Navbar
           isDark={isDark}
@@ -1386,7 +1419,80 @@ export default function Dashboard() {
           isSidebarOpen={isSidebarOpen}
             email={email || undefined}
         />
-        <main className="flex-1 overflow-auto p-4 pt-24">
+          
+          {/* Mobile Spaces Bar */}
+          <div className="md:hidden w-full overflow-x-auto sticky top-14 z-30 border-b px-2 py-2"
+            style={{
+              backgroundColor: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+              backdropFilter: 'blur(8px)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                {spaces.map((space) => (
+                  <button
+                    key={space.id}
+                    onClick={() => handleSpaceSelect(space)}
+                    onTouchStart={() => handleTouchStart(space)}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchMove={handleTouchEnd}
+                    onTouchCancel={handleTouchEnd}
+                    className={cn(
+                      "flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors whitespace-nowrap relative",
+                      isDark 
+                        ? selectedSpace?.id === space.id
+                          ? "bg-white/10 text-white"
+                          : "text-white/60 hover:bg-white/5"
+                        : selectedSpace?.id === space.id
+                          ? "bg-black/10 text-black"
+                          : "text-black/60 hover:bg-black/5"
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {space.icon && (
+                        <div className={cn(
+                          "w-4 h-4",
+                          isDark 
+                            ? selectedSpace?.id === space.id
+                              ? "text-white"
+                              : "text-white/60"
+                            : selectedSpace?.id === space.id
+                              ? "text-black"
+                              : "text-black/60"
+                        )}>
+                          {(() => {
+                            const IconComp = AVAILABLE_ICONS[space.icon];
+                            return IconComp ? <IconComp className="w-4 h-4" /> : null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">{space.name}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    // Open create space modal directly
+                    setIsCreatingSpace(true);
+                    setNewSpaceName('');
+                    setSelectedIcon('hash');
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors whitespace-nowrap flex-shrink-0",
+                    isDark 
+                      ? "text-white/60 hover:bg-white/5 border border-white/10" 
+                      : "text-black/60 hover:bg-black/5 border border-black/10"
+                  )}
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">New</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <main className="flex-1 overflow-auto p-4 md:pt-24 pt-16">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Notes Section */}
             <div className="flex items-center justify-between">
@@ -1437,19 +1543,19 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "p-4 sm:p-6 rounded-xl border",
+                    "p-4 sm:p-6 rounded-xl border",
                   isDark 
                     ? "bg-black/60 border-white/10" 
                     : "bg-white/60 border-black/5"
                 )}
               >
-                  <div className="flex justify-between items-center mb-4 sm:mb-6">
-                    <h2 className="text-lg sm:text-xl font-semibold">Add Memory</h2>
+                    <div className="flex justify-between items-center mb-4 sm:mb-6">
+                      <h2 className="text-lg sm:text-xl font-semibold">Add Memory</h2>
                     <button
                       onClick={() => {
                         setShowNewNote(false)
                         setEditingNote(null)
-                        setNewNote({ title: '', content: '', image_url: '' })
+                          setNewNote({ title: '', content: '', image_url: '' })
                         setIsAIEnabled(false)
                       }}
                       className={cn(
@@ -1461,13 +1567,13 @@ export default function Dashboard() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
                     {/* Left Column - Options */}
-                    <div className="sm:col-span-4 space-y-3 sm:space-y-4">
+                      <div className="sm:col-span-4 space-y-3 sm:space-y-4">
                       <button
                         onClick={handleWebsiteClick}
                         className={cn(
-                          "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                           isDark 
                             ? "border-white/10 hover:bg-white/5" 
                             : "border-black/10 hover:bg-black/5",
@@ -1489,7 +1595,7 @@ export default function Dashboard() {
                       <button
                         onClick={handleNoteClick}
                         className={cn(
-                          "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                           isDark 
                             ? "border-white/10 hover:bg-white/5" 
                             : "border-black/10 hover:bg-black/5",
@@ -1511,7 +1617,7 @@ export default function Dashboard() {
                       <button
                         onClick={handleDocumentClick}
                         className={cn(
-                          "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                           isDark 
                             ? "border-white/10 hover:bg-white/5" 
                             : "border-black/10 hover:bg-black/5",
@@ -1531,356 +1637,356 @@ export default function Dashboard() {
                       </button>
                     </div>
 
-                    {/* Right Column - Content */}
-                    <div className="sm:col-span-8 space-y-4">
-                      {activeTab === 'website' && (
-                        <div className="space-y-3">
-                          <input
-                            type="url"
-                            value={websiteUrl}
-                            onChange={(e) => setWebsiteUrl(e.target.value)}
-                            placeholder="Enter website URL"
-                            className={cn(
-                              "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
-                              isDark 
-                                ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
-                                : "border-black/10 focus:border-black/20 placeholder:text-black/30"
-                            )}
-                          />
-                        </div>
-                      )}
-
-                      {activeTab === 'document' && (
-                        <div className="space-y-3">
-                          <div 
-                            className={cn(
-                              "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
-                              isDark 
-                                ? "border-white/10 hover:bg-white/5" 
-                                : "border-black/10 hover:bg-black/5"
-                            )}
-                            onClick={() => document.getElementById('document-upload')?.click()}
-                          >
+                      {/* Right Column - Content */}
+                      <div className="sm:col-span-8 space-y-4">
+                        {activeTab === 'website' && (
+                          <div className="space-y-3">
                             <input
-                              type="file"
-                              id="document-upload"
-                              className="hidden"
-                              onChange={handleDocumentUpload}
-                              accept=".pdf,.doc,.docx,.txt"
-                            />
-                            <div className="flex flex-col items-center gap-2">
-                              <File className="w-8 h-8 opacity-50" />
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {documentFile ? documentFile.name : 'Click to upload a document'}
-                                </p>
-                                <p className={cn(
-                                  "text-xs mt-1",
-                                  isDark ? "text-white/50" : "text-black/50"
-                                )}>
-                                  PDF, DOC, DOCX, or TXT
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {activeTab === 'note' && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <input
-                              type="text"
-                              value={newNote.title}
-                              onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
-                              placeholder="Title"
+                              type="url"
+                              value={websiteUrl}
+                              onChange={(e) => setWebsiteUrl(e.target.value)}
+                              placeholder="Enter website URL"
                               className={cn(
-                                "flex-1 px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
+                                "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
                                 isDark 
                                   ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
                                   : "border-black/10 focus:border-black/20 placeholder:text-black/30"
                               )}
                             />
-                            <button
-                              onClick={() => setIsAIEnabled(!isAIEnabled)}
-                              className={cn(
-                                "ml-2 p-2 rounded-lg transition-colors flex items-center gap-2",
-                                isDark 
-                                  ? isAIEnabled ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
-                                  : isAIEnabled ? "bg-black/10 text-black" : "text-black/60 hover:text-black hover:bg-black/5"
-                              )}
-                            >
-                              <Sparkles className="w-4 h-4" />
-                              <span className="hidden sm:inline">AI Mode</span>
-                            </button>
                           </div>
-                          
-                          {/* Image upload section */}
-                          <div 
-                            className={cn(
-                              "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
-                              newNote.image_url 
-                                ? "bg-cover bg-center relative" 
-                                : isDark 
+                        )}
+
+                        {activeTab === 'document' && (
+                          <div className="space-y-3">
+                            <div 
+                                className={cn(
+                                "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
+                                isDark 
                                   ? "border-white/10 hover:bg-white/5" 
-                                  : "border-black/10 hover:bg-black/5",
-                              "group"
-                            )}
-                            style={newNote.image_url ? {
-                              backgroundImage: `url(${newNote.image_url})`,
-                              backgroundSize: 'cover'
-                            } : {}}
-                            onClick={() => document.getElementById('note-image-upload')?.click()}
-                          >
-                            <input
-                              type="file"
-                              id="note-image-upload"
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0]
-                                if (!file) return
-                                
-                                // Check if it's an image
-                                if (!file.type.startsWith('image/')) {
-                                  setError('Please upload an image file (JPEG, PNG, GIF)')
-                                  return
-                                }
-                                
-                                setIsImageUploading(true)
-                                try {
-                                  const imageUrl = await handleImageUpload(file)
-                                  setNewNote(prev => ({ ...prev, image_url: imageUrl }))
-                                  setError(null)
-                                } catch (error) {
-                                  console.error('Error uploading image:', error)
-                                  setError(error instanceof Error ? error.message : 'Failed to upload image. Please try again.')
-                                } finally {
-                                  setIsImageUploading(false)
-                                }
-                              }}
-                              accept="image/*"
-                            />
-                            <div className="flex flex-col items-center gap-2 z-10 relative">
-                              {isImageUploading ? (
-                                <div className={cn(
-                                  "p-2 rounded-lg",
-                                  isDark ? "bg-black/50" : "bg-white/50"
-                                )}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
-                                    <span className={cn(
+                                  : "border-black/10 hover:bg-black/5"
+                              )}
+                              onClick={() => document.getElementById('document-upload')?.click()}
+                            >
+                              <input
+                                type="file"
+                                id="document-upload"
+                                className="hidden"
+                                onChange={handleDocumentUpload}
+                                accept=".pdf,.doc,.docx,.txt"
+                              />
+                              <div className="flex flex-col items-center gap-2">
+                                <File className="w-8 h-8 opacity-50" />
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {documentFile ? documentFile.name : 'Click to upload a document'}
+                                  </p>
+                                  <p className={cn(
+                                    "text-xs mt-1",
+                                    isDark ? "text-white/50" : "text-black/50"
+                                  )}>
+                                    PDF, DOC, DOCX, or TXT
+                                  </p>
+                            </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeTab === 'note' && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                  <input
+                    type="text"
+                    value={newNote.title}
+                    onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                                placeholder="Title"
+                    className={cn(
+                                  "flex-1 px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
+                      isDark 
+                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                    : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                                )}
+                              />
+                              <button
+                      onClick={() => setIsAIEnabled(!isAIEnabled)}
+                      className={cn(
+                                  "ml-2 p-2 rounded-lg transition-colors flex items-center gap-2",
+                      isDark 
+                                    ? isAIEnabled ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                                    : isAIEnabled ? "bg-black/10 text-black" : "text-black/60 hover:text-black hover:bg-black/5"
+                                )}
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                <span className="hidden sm:inline">AI Mode</span>
+                    </button>
+                      </div>
+                            
+                            {/* Image upload section */}
+                            <div 
+                              className={cn(
+                                "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
+                                newNote.image_url 
+                                  ? "bg-cover bg-center relative" 
+                                  : isDark 
+                                    ? "border-white/10 hover:bg-white/5" 
+                                    : "border-black/10 hover:bg-black/5",
+                                "group"
+                              )}
+                              style={newNote.image_url ? {
+                                backgroundImage: `url(${newNote.image_url})`,
+                                backgroundSize: 'cover'
+                              } : {}}
+                              onClick={() => document.getElementById('note-image-upload')?.click()}
+                            >
+                              <input
+                                type="file"
+                                id="note-image-upload"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  
+                                  // Check if it's an image
+                                  if (!file.type.startsWith('image/')) {
+                                    setError('Please upload an image file (JPEG, PNG, GIF)')
+                                      return
+                                    }
+                                  
+                                  setIsImageUploading(true)
+                                  try {
+                                    const imageUrl = await handleImageUpload(file)
+                                    setNewNote(prev => ({ ...prev, image_url: imageUrl }))
+                                    setError(null)
+                                  } catch (error) {
+                                    console.error('Error uploading image:', error)
+                                    setError(error instanceof Error ? error.message : 'Failed to upload image. Please try again.')
+                                  } finally {
+                                    setIsImageUploading(false)
+                                  }
+                                }}
+                                accept="image/*"
+                              />
+                              <div className="flex flex-col items-center gap-2 z-10 relative">
+                                {isImageUploading ? (
+                                  <div className={cn(
+                                    "p-2 rounded-lg",
+                                    isDark ? "bg-black/50" : "bg-white/50"
+                                  )}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
+                                      <span className={cn(
+                                        "text-sm font-medium",
+                                        isDark ? "text-white" : "text-black"
+                                      )}>
+                                        Uploading...
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : newNote.image_url ? (
+                                  <div className={cn(
+                                    "p-2 rounded-lg",
+                                    isDark ? "bg-black/50" : "bg-white/50"
+                                  )}>
+                                    <div className={cn(
                                       "text-sm font-medium",
                                       isDark ? "text-white" : "text-black"
                                     )}>
-                                      Uploading...
-                                    </span>
+                                      Change Background Image
+                                    </div>
                                   </div>
-                                </div>
-                              ) : newNote.image_url ? (
-                                <div className={cn(
-                                  "p-2 rounded-lg",
-                                  isDark ? "bg-black/50" : "bg-white/50"
-                                )}>
-                                  <div className={cn(
-                                    "text-sm font-medium",
-                                    isDark ? "text-white" : "text-black"
-                                  )}>
-                                    Change Background Image
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className={cn(
-                                    "p-2 rounded-full",
+                                ) : (
+                                  <>
+                                    <div className={cn(
+                                      "p-2 rounded-full",
                                     isDark ? "bg-white/10" : "bg-black/10"
                                   )}>
-                                    <ImageIcon className="w-6 h-6 opacity-50" />
+                                      <ImageIcon className="w-6 h-6 opacity-50" />
                                   </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Add a background image</p>
-                                    <p className={cn(
-                                      "text-xs mt-1",
-                                      isDark ? "text-white/50" : "text-black/50"
-                                    )}>
-                                      JPEG, PNG, or GIF (max 5MB)
-                                    </p>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                            {newNote.image_url && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setNewNote(prev => ({ ...prev, image_url: '' }))
-                                }}
-                                className={cn(
-                                  "absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
-                                  isDark ? "bg-black/50 text-white" : "bg-white/70 text-black"
+                                    <div>
+                                      <p className="text-sm font-medium">Add a background image</p>
+                                      <p className={cn(
+                                        "text-xs mt-1",
+                                        isDark ? "text-white/50" : "text-black/50"
+                                      )}>
+                                        JPEG, PNG, or GIF (max 5MB)
+                                      </p>
+                                    </div>
+                                  </>
                                 )}
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="relative">
-                            <textarea
-                              value={newNote.content}
-                              onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                              onKeyDown={handleKeyDown}
-                              placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
-                              rows={6}
-                              className={cn(
-                                "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
-                                isDark 
-                                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
-                                  : "border-black/10 focus:border-black/20 placeholder:text-black/30"
-                              )}
-                            />
-                            {isGenerating && (
-                              <div className={cn(
-                                "absolute inset-0 flex items-center justify-center rounded-lg",
-                                isDark ? "bg-black/60" : "bg-white/60"
-                              )}>
-                                <div className="flex items-center gap-2">
-                                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current" />
-                                  <span className="text-sm">Generating...</span>
-                                </div>
                               </div>
-                            )}
-                            {isAIEnabled && !isGenerating && (
-                              <button
-                                onClick={async () => {
-                                  const content = newNote.content.trim();
-                                  if (!content) return;
-                                  
-                                  try {
-                                    setIsGenerating(true);
+                              {newNote.image_url && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                    setNewNote(prev => ({ ...prev, image_url: '' }))
+                                    }}
+                                    className={cn(
+                                    "absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
+                                    isDark ? "bg-black/50 text-white" : "bg-white/70 text-black"
+                                  )}
+                                >
+                                  <X className="w-4 h-4" />
+                                  </button>
+                              )}
+                                </div>
+
+                            <div className="relative">
+                              <textarea
+                                value={newNote.content}
+                                onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                                onKeyDown={handleKeyDown}
+                                placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
+                                rows={6}
+                                className={cn(
+                                  "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
+                                  isDark 
+                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                    : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                                )}
+                              />
+                              {isGenerating && (
+                                  <div className={cn(
+                                  "absolute inset-0 flex items-center justify-center rounded-lg",
+                                  isDark ? "bg-black/60" : "bg-white/60"
+                                  )}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current" />
+                                    <span className="text-sm">Generating...</span>
+                                  </div>
+                                </div>
+                              )}
+                              {isAIEnabled && !isGenerating && (
+                                <button
+                                  onClick={async () => {
+                                    const content = newNote.content.trim();
+                                    if (!content) return;
                                     
-                                    if (selectedModel.provider === 'gemini') {
-                                      const aiContent = await generateNoteContent(content);
-                                      setNewNote({ ...newNote, content: aiContent });
-                                    } else {
-                                      const response = await generateOpenRouterContent(selectedModel.name, content);
-                                      if (typeof response === 'string') {
-                                        setNewNote({ ...newNote, content: response });
+                                    try {
+                                      setIsGenerating(true);
+                                      
+                                      if (selectedModel.provider === 'gemini') {
+                                        const aiContent = await generateNoteContent(content);
+                                        setNewNote({ ...newNote, content: aiContent });
                                       } else {
-                                        const reader = response.body?.getReader();
-                                        if (!reader) {
-                                          throw new Error('Response body is not readable');
-                                        }
+                                        const response = await generateOpenRouterContent(selectedModel.name, content);
+                                        if (typeof response === 'string') {
+                                          setNewNote({ ...newNote, content: response });
+                                        } else {
+                                          const reader = response.body?.getReader();
+                                          if (!reader) {
+                                            throw new Error('Response body is not readable');
+                                          }
 
-                                        const decoder = new TextDecoder();
-                                        let buffer = '';
-                                        let accumulatedContent = '';
-                                        
-                                        try {
-                                          while (true) {
-                                            const { done, value } = await reader.read();
-                                            if (done) break;
-                                            
-                                            buffer += decoder.decode(value, { stream: true });
-
+                                          const decoder = new TextDecoder();
+                                          let buffer = '';
+                                          let accumulatedContent = '';
+                                          
+                                          try {
                                             while (true) {
-                                              const lineEnd = buffer.indexOf('\n');
-                                              if (lineEnd === -1) break;
+                                              const { done, value } = await reader.read();
+                                              if (done) break;
+                                              
+                                              buffer += decoder.decode(value, { stream: true });
 
-                                              const line = buffer.slice(0, lineEnd).trim();
-                                              buffer = buffer.slice(lineEnd + 1);
+                                              while (true) {
+                                                const lineEnd = buffer.indexOf('\n');
+                                                if (lineEnd === -1) break;
 
-                                              if (line.startsWith('data: ')) {
-                                                const data = line.slice(6);
-                                                if (data === '[DONE]') break;
+                                                const line = buffer.slice(0, lineEnd).trim();
+                                                buffer = buffer.slice(lineEnd + 1);
 
-                                                try {
-                                                  const parsed = JSON.parse(data);
-                                                  const streamContent = parsed.choices[0].delta.content;
-                                                  if (streamContent) {
-                                                    accumulatedContent += streamContent;
-                                                    setNewNote({ ...newNote, content: accumulatedContent });
+                                                if (line.startsWith('data: ')) {
+                                                  const data = line.slice(6);
+                                                  if (data === '[DONE]') break;
+
+                                                  try {
+                                                    const parsed = JSON.parse(data);
+                                                    const streamContent = parsed.choices[0].delta.content;
+                                                    if (streamContent) {
+                                                      accumulatedContent += streamContent;
+                                                      setNewNote({ ...newNote, content: accumulatedContent });
+                                                    }
+                                                  } catch (e) {
+                                                    // Ignore invalid JSON
                                                   }
-                                                } catch (e) {
-                                                  // Ignore invalid JSON
                                                 }
                                               }
                                             }
+                                          } catch (error) {
+                                            console.error('Error reading stream:', error);
+                                            setNewNote({ ...newNote, content });
+                                          } finally {
+                                            reader.releaseLock();
                                           }
-                                        } catch (error) {
-                                          console.error('Error reading stream:', error);
-                                          setNewNote({ ...newNote, content });
-                                        } finally {
-                                          reader.releaseLock();
                                         }
                                       }
+                                    } catch (error) {
+                                      console.error('Error generating AI content:', error);
+                                      setNewNote({ ...newNote, content });
+                                    } finally {
+                                      setIsGenerating(false);
                                     }
-                                  } catch (error) {
-                                    console.error('Error generating AI content:', error);
-                                    setNewNote({ ...newNote, content });
-                                  } finally {
-                                    setIsGenerating(false);
-                                  }
-                                }}
-                                className={cn(
-                                  "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                                    : "hover:bg-black/10 text-black/60 hover:text-black"
-                                )}
-                              >
-                                <Wand2 className="w-4 h-4" />
-                              </button>
-                            )}
+                                  }}
+                                  className={cn(
+                                    "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
+                                    isDark 
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Wand2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {isAIEnabled && (
+                        {isAIEnabled && (
                         <div className="flex items-center gap-2">
-                          <ModelSelector
-                            selectedModel={selectedModel}
-                            onModelChange={setSelectedModel}
-                            isDark={isDark}
-                          />
-                        </div>
-                      )}
+                            <ModelSelector
+                              selectedModel={selectedModel}
+                              onModelChange={setSelectedModel}
+                              isDark={isDark}
+                            />
+                          </div>
+                        )}
 
-                      <div className="flex items-center justify-end gap-2 pt-2">
-                        <button
-                          onClick={() => {
-                            setShowNewNote(false)
-                            setEditingNote(null)
-                            setNewNote({ title: '', content: '', image_url: '' })
-                            setIsAIEnabled(false)
-                          }}
-                          className={cn(
-                            "px-4 py-2 rounded-lg transition-colors text-sm",
-                            isDark 
-                              ? "text-white/60 hover:bg-white/5" 
-                              : "text-black/60 hover:bg-black/5"
-                          )}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveNote}
-                          disabled={
-                            activeTab === 'website' ? !websiteUrl :
-                            activeTab === 'document' ? !documentFile :
-                            !newNote.content.trim()
-                          }
-                          className={cn(
-                            "px-4 py-2 rounded-lg transition-colors text-sm font-medium",
-                            isDark 
-                              ? "bg-white text-black hover:bg-white/90 disabled:opacity-50" 
-                              : "bg-black text-white hover:bg-black/90 disabled:opacity-50"
-                          )}
-                        >
-                          {editingNote ? 'Update' : 'Save'} Memory
-                        </button>
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowNewNote(false)
+                      setEditingNote(null)
+                              setNewNote({ title: '', content: '', image_url: '' })
+                      setIsAIEnabled(false)
+                    }}
+                    className={cn(
+                              "px-4 py-2 rounded-lg transition-colors text-sm",
+                      isDark 
+                                ? "text-white/60 hover:bg-white/5" 
+                                : "text-black/60 hover:bg-black/5"
+                    )}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveNote}
+                            disabled={
+                              activeTab === 'website' ? !websiteUrl :
+                              activeTab === 'document' ? !documentFile :
+                              !newNote.content.trim()
+                            }
+                    className={cn(
+                              "px-4 py-2 rounded-lg transition-colors text-sm font-medium",
+                              isDark 
+                                ? "bg-white text-black hover:bg-white/90 disabled:opacity-50" 
+                                : "bg-black text-white hover:bg-black/90 disabled:opacity-50"
+                            )}
+                          >
+                            {editingNote ? 'Update' : 'Save'} Memory
+                  </button>
                       </div>
                     </div>
-                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -1940,9 +2046,9 @@ export default function Dashboard() {
                   onClick={() => setSelectedNote(note)}
                   className={cn(
                     "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
-                    isDark ? "border-white/10" : "border-black/10",
-                    note.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                    note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                            isDark ? "border-white/10" : "border-black/10",
+                            note.color || (isDark ? "bg-black/60" : "bg-white/60"),
+                            note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
                   )}
                   style={note.image_url ? { position: 'relative' } : {}}
                 >
@@ -1954,97 +2060,97 @@ export default function Dashboard() {
                   )}
 
                   <div className="relative z-10">
-                    <div className="flex items-start justify-between">
-                      <h3 className={cn(
-                        "text-lg font-medium line-clamp-1",
-                        isDark ? "text-white/90" : "text-black/90"
-                      )}>
-                        {note.title}
-                      </h3>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const colors = [
-                              'bg-white dark:bg-zinc-950',
-                              'bg-red-50 dark:bg-red-950',
-                              'bg-blue-50 dark:bg-blue-950',
-                              'bg-green-50 dark:bg-green-950',
-                              'bg-yellow-50 dark:bg-yellow-950',
-                              'bg-purple-50 dark:bg-purple-950',
-                              'bg-pink-50 dark:bg-pink-950',
-                            ];
-                            const currentIndex = colors.indexOf(note.color || colors[0]);
-                            const nextColor = colors[(currentIndex + 1) % colors.length];
-                            handleColorChange(note.id, nextColor, 'note');
-                          }}
-                          className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <Paintbrush className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditNote(note);
-                          }}
-                          className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteNote(note.id);
-                          }}
-                          className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 text-xs">
-                      <Calendar className="w-3 h-3" />
-                      <span className={cn(
-                        isDark ? "text-white/40" : "text-black/40"
-                      )}>
-                        {formatDate(note.created_at)}
-                      </span>
-                    </div>
-                    <div className={cn(
-                      "mt-2 prose prose-base max-w-none line-clamp-4 text-base",
-                      isDark ? "prose-invert text-white/60" : "text-black/60"
+                  <div className="flex items-start justify-between">
+                    <h3 className={cn(
+                      "text-lg font-medium line-clamp-1",
+                      isDark ? "text-white/90" : "text-black/90"
                     )}>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          strong: ({node, ...props}) => (
-                            <strong className={cn(
-                              "font-bold",
-                              isDark ? "text-white" : "text-black"
-                            )} {...props} />
-                          ),
-                          p: ({node, ...props}) => (
-                            <p className="mb-2 last:mb-0" {...props} />
-                          )
+                      {note.title}
+                    </h3>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const colors = [
+                                    'bg-white dark:bg-zinc-950',
+                                    'bg-red-50 dark:bg-red-950',
+                                    'bg-blue-50 dark:bg-blue-950',
+                                    'bg-green-50 dark:bg-green-950',
+                                    'bg-yellow-50 dark:bg-yellow-950',
+                                    'bg-purple-50 dark:bg-purple-950',
+                                    'bg-pink-50 dark:bg-pink-950',
+                                  ];
+                                  const currentIndex = colors.indexOf(note.color || colors[0]);
+                                  const nextColor = colors[(currentIndex + 1) % colors.length];
+                                  handleColorChange(note.id, nextColor, 'note');
+                                }}
+                                className={cn(
+                            "p-1 rounded-lg transition-colors pointer-events-auto",
+                                  isDark 
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                    : "hover:bg-black/10 text-black/60 hover:text-black"
+                                )}
+                              >
+                                <Paintbrush className="w-4 h-4" />
+                              </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditNote(note);
                         }}
+                        className={cn(
+                            "p-1 rounded-lg transition-colors pointer-events-auto",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
                       >
-                        {note.content}
-                      </ReactMarkdown>
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNote(note.id);
+                        }}
+                        className={cn(
+                            "p-1 rounded-lg transition-colors pointer-events-auto",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-xs">
+                    <Calendar className="w-3 h-3" />
+                    <span className={cn(
+                      isDark ? "text-white/40" : "text-black/40"
+                    )}>
+                      {formatDate(note.created_at)}
+                    </span>
+                  </div>
+                  <div className={cn(
+                    "mt-2 prose prose-base max-w-none line-clamp-4 text-base",
+                    isDark ? "prose-invert text-white/60" : "text-black/60"
+                  )}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        strong: ({node, ...props}) => (
+                          <strong className={cn(
+                            "font-bold",
+                                    isDark ? "text-white" : "text-black"
+                          )} {...props} />
+                        ),
+                        p: ({node, ...props}) => (
+                          <p className="mb-2 last:mb-0" {...props} />
+                        )
+                      }}
+                    >
+                      {note.content}
+                    </ReactMarkdown>
                     </div>
                   </div>
                 </motion.div>
@@ -2358,35 +2464,35 @@ export default function Dashboard() {
                           {selectedNote.title}
                         </h2>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              handleEditNote(selectedNote);
-                              setSelectedNote(null);
-                            }}
-                            className={cn(
+                      <button
+                        onClick={() => {
+                          handleEditNote(selectedNote);
+                          setSelectedNote(null);
+                        }}
+                        className={cn(
                               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors",
-                              isDark 
+                          isDark 
                                 ? "bg-white/10 hover:bg-white/20 text-white" 
                                 : "bg-black/10 hover:bg-black/20 text-black"
-                            )}
-                          >
+                        )}
+                      >
                             <Edit2 className="w-4 h-4" />
                             <span className="text-sm font-medium">Edit</span>
-                          </button>
-                          <button
-                            onClick={() => setSelectedNote(null)}
-                            className={cn(
-                              "p-2 rounded-lg transition-colors",
-                              isDark 
-                                ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                                : "hover:bg-black/10 text-black/60 hover:text-black"
-                            )}
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
+                      </button>
+                      <button
+                        onClick={() => setSelectedNote(null)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                         </div>
-                      </div>
-                      
+                    </div>
+                    
                       <div className="flex items-center gap-2 text-sm mb-6">
                         <Calendar className="w-4 h-4" />
                         <span className={cn(
@@ -2394,29 +2500,29 @@ export default function Dashboard() {
                         )}>
                           {formatDate(selectedNote.created_at)}
                         </span>
-                      </div>
+                    </div>
 
-                      <div className={cn(
-                        "prose prose-lg max-w-none",
-                        isDark ? "prose-invert text-white/80" : "text-black/80",
-                        "whitespace-pre-wrap"
-                      )}>
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            strong: ({node, ...props}) => (
-                              <strong className={cn(
-                                "font-bold",
-                                isDark ? "text-white" : "text-black"
-                              )} {...props} />
-                            ),
-                            p: ({node, ...props}) => (
-                              <p className="mb-4 last:mb-0" {...props} />
-                            )
-                          }}
-                        >
-                          {selectedNote.content}
-                        </ReactMarkdown>
+                    <div className={cn(
+                      "prose prose-lg max-w-none",
+                      isDark ? "prose-invert text-white/80" : "text-black/80",
+                      "whitespace-pre-wrap"
+                    )}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          strong: ({node, ...props}) => (
+                            <strong className={cn(
+                              "font-bold",
+                              isDark ? "text-white" : "text-black"
+                            )} {...props} />
+                          ),
+                          p: ({node, ...props}) => (
+                            <p className="mb-4 last:mb-0" {...props} />
+                          )
+                        }}
+                      >
+                        {selectedNote.content}
+                      </ReactMarkdown>
                       </div>
                     </div>
                   </motion.div>
@@ -2434,7 +2540,7 @@ export default function Dashboard() {
                     className="fixed inset-0 z-50 flex items-center justify-center p-4"
                   >
                     <div 
-                      className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
+                    className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
                       onClick={() => setSelectedDocument(null)}
                     />
                     <motion.div
@@ -2442,7 +2548,7 @@ export default function Dashboard() {
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.95, opacity: 0 }}
                       className={cn(
-                        "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
+                      "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
                         isDark 
                           ? "bg-black/80 border border-white/10" 
                           : "bg-white/90 border border-black/5"
@@ -2580,7 +2686,7 @@ export default function Dashboard() {
                     className="fixed inset-0 z-50 flex items-center justify-center p-4"
                   >
                     <div 
-                      className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
+                    className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
                       onClick={() => setSelectedWebsite(null)}
                     />
                     <motion.div
@@ -2588,7 +2694,7 @@ export default function Dashboard() {
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.95, opacity: 0 }}
                       className={cn(
-                        "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
+                      "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
                         isDark 
                           ? "bg-black/80 border border-white/10" 
                           : "bg-white/90 border border-black/5"
@@ -2712,6 +2818,196 @@ export default function Dashboard() {
         </main>
         </div>
       </div>
+
+      {/* Create Space Modal */}
+      <AnimatePresence>
+        {isCreatingSpace && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsCreatingSpace(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={cn(
+                "relative w-full max-w-sm rounded-xl p-6 shadow-2xl",
+                isDark 
+                  ? "bg-black/80 border border-white/10" 
+                  : "bg-white/90 border border-black/5"
+              )}
+            >
+              <h2 className={cn(
+                "text-xl font-semibold mb-4",
+                isDark ? "text-white/90" : "text-black/90"
+              )}>
+                Create New Space
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className={cn(
+                    "block text-sm font-medium mb-2",
+                    isDark ? "text-white/60" : "text-black/60"
+                  )}>
+                    Space Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newSpaceName}
+                    onChange={(e) => setNewSpaceName(e.target.value)}
+                    placeholder="Enter space name"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg border",
+                      isDark 
+                        ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" 
+                        : "bg-black/5 border-black/10 text-black placeholder:text-black/30"
+                    )}
+                  />
+                </div>
+                <div>
+                  <label className={cn(
+                    "block text-sm font-medium mb-2",
+                    isDark ? "text-white/60" : "text-black/60"
+                  )}>
+                    Icon
+                  </label>
+                  <div className="grid grid-cols-8 gap-2">
+                    {Object.entries(AVAILABLE_ICONS).map(([key, Icon]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedIcon(key)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark
+                            ? selectedIcon === key
+                              ? "bg-white/20 text-white"
+                              : "hover:bg-white/10 text-white/60"
+                            : selectedIcon === key
+                              ? "bg-black/20 text-black"
+                              : "hover:bg-black/10 text-black/60"
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingSpace(false)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg",
+                      isDark 
+                        ? "text-white/60 hover:text-white/90" 
+                        : "text-black/60 hover:text-black/90"
+                    )}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newSpaceName.trim()) {
+                        handleCreateSpace(newSpaceName.trim(), selectedIcon);
+                        setIsCreatingSpace(false);
+                      }
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-lg",
+                      isDark
+                        ? "bg-white/10 text-white hover:bg-white/20"
+                        : "bg-black/10 text-black hover:bg-black/20"
+                    )}
+                  >
+                    Create Space
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Space Delete Menu */}
+      <AnimatePresence>
+        {showSpaceMenu && longPressSpace && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => {
+                setShowSpaceMenu(false);
+                setLongPressSpace(null);
+              }}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={cn(
+                "relative w-full max-w-sm rounded-xl p-6 shadow-2xl",
+                isDark 
+                  ? "bg-black/80 border border-white/10" 
+                  : "bg-white/90 border border-black/5"
+              )}
+            >
+              <h2 className={cn(
+                "text-xl font-semibold mb-4",
+                isDark ? "text-white/90" : "text-black/90"
+              )}>
+                Space Options
+              </h2>
+              <div className="space-y-4">
+                <button
+                  onClick={handleDeleteSpaceFromMobile}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-4 rounded-lg text-left",
+                    isDark
+                      ? "bg-red-900/30 text-red-300 hover:bg-red-900/40"
+                      : "bg-red-100 text-red-700 hover:bg-red-200"
+                  )}
+                >
+                  <Trash2 className="w-5 h-5" />
+                  <div>
+                    <div className="font-medium">Delete Space</div>
+                    <div className="text-sm opacity-80 mt-0.5">
+                      This will delete "{longPressSpace.name}" and all its content
+                    </div>
+                  </div>
+                </button>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowSpaceMenu(false);
+                      setLongPressSpace(null);
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-lg",
+                      isDark 
+                        ? "text-white/60 hover:text-white/90" 
+                        : "text-black/60 hover:text-black/90"
+                    )}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 } 
