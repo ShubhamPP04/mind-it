@@ -8,7 +8,7 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { BackgroundPaths } from "@/components/ui/background-paths"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon } from 'lucide-react'
+import { LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush } from 'lucide-react'
 import { generateNoteContent } from '@/utils/gemini'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
@@ -21,7 +21,6 @@ import { SpacesSidebar } from "@/components/ui/spaces-sidebar"
 import { AVAILABLE_ICONS } from '@/lib/constants'
 import { MenuBar } from "../components/ui/menu-bar"
 import { Globe } from "lucide-react"
-import Image from 'next/image'
 
 interface Space {
   id: string
@@ -42,7 +41,6 @@ interface Note {
   url?: string
   document_url?: string
   color?: string
-  image_url?: string
 }
 
 interface Website {
@@ -76,11 +74,10 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false)
   const [notes, setNotes] = useState<Note[]>([])
   const [showNewNote, setShowNewNote] = useState(false)
-  const [newNote, setNewNote] = useState({ title: '', content: '', image_url: '' })
+  const [newNote, setNewNote] = useState({ title: '', content: '' })
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isAIEnabled, setIsAIEnabled] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isImageUploading, setIsImageUploading] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [selectedModel, setSelectedModel] = useState<Model>({
     provider: 'gemini',
@@ -159,16 +156,6 @@ export default function Dashboard() {
           return
         }
         setEmail(user.email || null)
-
-        // Ensure storage infrastructure is set up
-        try {
-          const storageResponse = await fetch('/api/storage')
-          const storageData = await storageResponse.json()
-          console.log('Storage infrastructure status:', storageData)
-        } catch (storageError) {
-          // Non-blocking error - continue even if this fails
-          console.warn('Could not verify storage setup:', storageError)
-        }
 
         // Get URL parameters for source navigation
         const params = new URLSearchParams(window.location.search)
@@ -578,7 +565,7 @@ export default function Dashboard() {
 
   const handleNewNote = () => {
     setEditingNote(null)
-    setNewNote({ title: '', content: '', image_url: '' })
+    setNewNote({ title: '', content: '' })
     setShowNewNote(true)
   }
 
@@ -784,54 +771,39 @@ export default function Dashboard() {
             return
           }
 
-          try {
-            const noteData = {
-              title: newNote.title || 'Untitled Note',
-              content: newNote.content,
-              user_id: user.id,
-              space_id: selectedSpace.id,
-              created_at: new Date().toISOString(),
-              image_url: newNote.image_url || null
-            }
-
-            console.log('Saving note to space:', selectedSpace.id, 'with data:', noteData)
-            if (editingNote) {
-              const { error } = await supabase
-                .from('notes')
-                .update({
-                  ...noteData,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', editingNote.id)
-                .eq('user_id', user.id)
-
-              if (error) {
-                console.error('Specific error updating note:', JSON.stringify(error))
-                throw error
-              } else {
-                await fetchNotes(user.id)
-              }
-            } else {
-              const { error } = await supabase
-                .from('notes')
-                .insert(noteData)
-
-              if (error) {
-                console.error('Specific error inserting note:', JSON.stringify(error))
-                throw error
-              } else {
-                await fetchNotes(user.id)
-              }
-            }
-          } catch (error) {
-            console.error('Detailed error in note save:', error)
-            throw error
+          const noteData = {
+            title: newNote.title || 'Untitled Note',
+            content: newNote.content,
+            user_id: user.id,
+            space_id: selectedSpace.id,
+            created_at: new Date().toISOString()
           }
+
+          console.log('Saving note to space:', selectedSpace.id)
+          if (editingNote) {
+            const { error } = await supabase
+              .from('notes')
+              .update({
+                ...noteData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', editingNote.id)
+              .eq('user_id', user.id)
+
+            if (error) throw error
+          } else {
+            const { error } = await supabase
+              .from('notes')
+              .insert(noteData)
+
+            if (error) throw error
+          }
+          await fetchNotes(user.id)
           break
       }
 
       // Reset form state
-      setNewNote({ title: '', content: '', image_url: '' })
+      setNewNote({ title: '', content: '' })
       setWebsiteUrl('')
       setDocumentFile(null)
       setShowNewNote(false)
@@ -841,12 +813,7 @@ export default function Dashboard() {
       setIsGenerating(false)
     } catch (error) {
       console.error('Error saving memory:', error)
-      // Provide more detailed error message
-      let errorMessage = 'Failed to save memory. Please try again.'
-      if (error instanceof Error) {
-        errorMessage = `Error: ${error.message}`
-      }
-      setError(errorMessage)
+      setError('Failed to save memory. Please try again.')
     }
   }
 
@@ -854,8 +821,7 @@ export default function Dashboard() {
     setEditingNote(note)
     setNewNote({
       title: note.title,
-      content: note.content,
-      image_url: note.image_url || ''
+      content: note.content
     })
     setShowNewNote(true)
   }
@@ -971,17 +937,17 @@ export default function Dashboard() {
 
   const handleWebsiteClick = () => {
     setActiveTab('website')
-    setNewNote({ title: '', content: '', image_url: '' })
+    setNewNote({ title: '', content: '' })
   }
 
   const handleNoteClick = () => {
     setActiveTab('note')
-    setNewNote({ title: '', content: '', image_url: '' })
+    setNewNote({ title: '', content: '' })
   }
 
   const handleDocumentClick = () => {
     setActiveTab('document')
-    setNewNote({ title: '', content: '', image_url: '' })
+    setNewNote({ title: '', content: '' })
   }
 
   const handleFetchContent = async () => {
@@ -1292,53 +1258,6 @@ export default function Dashboard() {
     }
   }
 
-  const handleImageUpload = async (file: File) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-
-      // Make sure the file size is under 5MB
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('File size must be under 5MB')
-      }
-
-      // Create a unique file name
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      const fileName = `${Date.now()}-${Math.random().toString().substring(2)}.${fileExt}`
-      const filePath = `note-images/${user.id}/${fileName}`
-
-      console.log('Uploading file to:', filePath)
-
-      // Upload the file to Supabase storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true // Changed to true to overwrite if exists
-        })
-
-      if (uploadError) {
-        console.error('Detailed upload error:', JSON.stringify(uploadError))
-        throw new Error(uploadError.message || 'Failed to upload image')
-      }
-
-      if (!data?.path) {
-        throw new Error('No file path returned')
-      }
-
-      // Get public URL for the image
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(data.path)
-
-      console.log('Successfully uploaded image, public URL:', publicUrl)
-      return publicUrl
-    } catch (error) {
-      console.error('Detailed error in handleImageUpload:', error)
-      throw error
-    }
-  }
-
   if (!mounted || loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -1449,7 +1368,7 @@ export default function Dashboard() {
                       onClick={() => {
                         setShowNewNote(false)
                         setEditingNote(null)
-                        setNewNote({ title: '', content: '', image_url: '' })
+                        setNewNote({ title: '', content: '' })
                         setIsAIEnabled(false)
                       }}
                       className={cn(
@@ -1614,116 +1533,6 @@ export default function Dashboard() {
                               <span className="hidden sm:inline">AI Mode</span>
                             </button>
                           </div>
-                          
-                          {/* Image upload section */}
-                          <div 
-                            className={cn(
-                              "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
-                              newNote.image_url 
-                                ? "bg-cover bg-center relative" 
-                                : isDark 
-                                  ? "border-white/10 hover:bg-white/5" 
-                                  : "border-black/10 hover:bg-black/5",
-                              "group"
-                            )}
-                            style={newNote.image_url ? {
-                              backgroundImage: `url(${newNote.image_url})`,
-                              backgroundSize: 'cover'
-                            } : {}}
-                            onClick={() => document.getElementById('note-image-upload')?.click()}
-                          >
-                            <input
-                              type="file"
-                              id="note-image-upload"
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0]
-                                if (!file) return
-                                
-                                // Check if it's an image
-                                if (!file.type.startsWith('image/')) {
-                                  setError('Please upload an image file (JPEG, PNG, GIF)')
-                                  return
-                                }
-                                
-                                setIsImageUploading(true)
-                                try {
-                                  const imageUrl = await handleImageUpload(file)
-                                  setNewNote(prev => ({ ...prev, image_url: imageUrl }))
-                                  setError(null)
-                                } catch (error) {
-                                  console.error('Error uploading image:', error)
-                                  setError(error instanceof Error ? error.message : 'Failed to upload image. Please try again.')
-                                } finally {
-                                  setIsImageUploading(false)
-                                }
-                              }}
-                              accept="image/*"
-                            />
-                            <div className="flex flex-col items-center gap-2 z-10 relative">
-                              {isImageUploading ? (
-                                <div className={cn(
-                                  "p-2 rounded-lg",
-                                  isDark ? "bg-black/50" : "bg-white/50"
-                                )}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
-                                    <span className={cn(
-                                      "text-sm font-medium",
-                                      isDark ? "text-white" : "text-black"
-                                    )}>
-                                      Uploading...
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : newNote.image_url ? (
-                                <div className={cn(
-                                  "p-2 rounded-lg",
-                                  isDark ? "bg-black/50" : "bg-white/50"
-                                )}>
-                                  <div className={cn(
-                                    "text-sm font-medium",
-                                    isDark ? "text-white" : "text-black"
-                                  )}>
-                                    Change Background Image
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className={cn(
-                                    "p-2 rounded-full",
-                                    isDark ? "bg-white/10" : "bg-black/10"
-                                  )}>
-                                    <ImageIcon className="w-6 h-6 opacity-50" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Add a background image</p>
-                                    <p className={cn(
-                                      "text-xs mt-1",
-                                      isDark ? "text-white/50" : "text-black/50"
-                                    )}>
-                                      JPEG, PNG, or GIF (max 5MB)
-                                    </p>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                            {newNote.image_url && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setNewNote(prev => ({ ...prev, image_url: '' }))
-                                }}
-                                className={cn(
-                                  "absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
-                                  isDark ? "bg-black/50 text-white" : "bg-white/70 text-black"
-                                )}
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-
                           <div className="relative">
                             <textarea
                               value={newNote.content}
@@ -1850,7 +1659,7 @@ export default function Dashboard() {
                           onClick={() => {
                             setShowNewNote(false)
                             setEditingNote(null)
-                            setNewNote({ title: '', content: '', image_url: '' })
+                            setNewNote({ title: '', content: '' })
                             setIsAIEnabled(false)
                           }}
                           className={cn(
@@ -1939,113 +1748,103 @@ export default function Dashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => setSelectedNote(note)}
                   className={cn(
-                    "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
-                    isDark ? "border-white/10" : "border-black/10",
-                    note.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                    note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                            "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
+                            isDark ? "border-white/10" : "border-black/10",
+                            note.color || (isDark ? "bg-black/60" : "bg-white/60"),
+                            note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
                   )}
-                  style={note.image_url ? { position: 'relative' } : {}}
                 >
-                  {note.image_url && (
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center opacity-40"
-                      style={{ backgroundImage: `url(${note.image_url})` }}
-                    />
-                  )}
-
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between">
-                      <h3 className={cn(
-                        "text-lg font-medium line-clamp-1",
-                        isDark ? "text-white/90" : "text-black/90"
-                      )}>
-                        {note.title}
-                      </h3>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const colors = [
-                              'bg-white dark:bg-zinc-950',
-                              'bg-red-50 dark:bg-red-950',
-                              'bg-blue-50 dark:bg-blue-950',
-                              'bg-green-50 dark:bg-green-950',
-                              'bg-yellow-50 dark:bg-yellow-950',
-                              'bg-purple-50 dark:bg-purple-950',
-                              'bg-pink-50 dark:bg-pink-950',
-                            ];
-                            const currentIndex = colors.indexOf(note.color || colors[0]);
-                            const nextColor = colors[(currentIndex + 1) % colors.length];
-                            handleColorChange(note.id, nextColor, 'note');
-                          }}
-                          className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <Paintbrush className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditNote(note);
-                          }}
-                          className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteNote(note.id);
-                          }}
-                          className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 text-xs">
-                      <Calendar className="w-3 h-3" />
-                      <span className={cn(
-                        isDark ? "text-white/40" : "text-black/40"
-                      )}>
-                        {formatDate(note.created_at)}
-                      </span>
-                    </div>
-                    <div className={cn(
-                      "mt-2 prose prose-base max-w-none line-clamp-4 text-base",
-                      isDark ? "prose-invert text-white/60" : "text-black/60"
+                  <div className="flex items-start justify-between">
+                    <h3 className={cn(
+                      "text-lg font-medium line-clamp-1",
+                      isDark ? "text-white/90" : "text-black/90"
                     )}>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          strong: ({node, ...props}) => (
-                            <strong className={cn(
-                              "font-bold",
-                              isDark ? "text-white" : "text-black"
-                            )} {...props} />
-                          ),
-                          p: ({node, ...props}) => (
-                            <p className="mb-2 last:mb-0" {...props} />
-                          )
+                      {note.title}
+                    </h3>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const colors = [
+                                    'bg-white dark:bg-zinc-950',
+                                    'bg-red-50 dark:bg-red-950',
+                                    'bg-blue-50 dark:bg-blue-950',
+                                    'bg-green-50 dark:bg-green-950',
+                                    'bg-yellow-50 dark:bg-yellow-950',
+                                    'bg-purple-50 dark:bg-purple-950',
+                                    'bg-pink-50 dark:bg-pink-950',
+                                  ];
+                                  const currentIndex = colors.indexOf(note.color || colors[0]);
+                                  const nextColor = colors[(currentIndex + 1) % colors.length];
+                                  handleColorChange(note.id, nextColor, 'note');
+                                }}
+                                className={cn(
+                                  "p-1 rounded-lg transition-colors",
+                                  isDark 
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                    : "hover:bg-black/10 text-black/60 hover:text-black"
+                                )}
+                              >
+                                <Paintbrush className="w-4 h-4" />
+                              </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditNote(note);
                         }}
+                        className={cn(
+                          "p-1 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
                       >
-                        {note.content}
-                      </ReactMarkdown>
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNote(note.id);
+                        }}
+                        className={cn(
+                          "p-1 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-xs">
+                    <Calendar className="w-3 h-3" />
+                    <span className={cn(
+                      isDark ? "text-white/40" : "text-black/40"
+                    )}>
+                      {formatDate(note.created_at)}
+                    </span>
+                  </div>
+                  <div className={cn(
+                    "mt-2 prose prose-base max-w-none line-clamp-4 text-base",
+                    isDark ? "prose-invert text-white/60" : "text-black/60"
+                  )}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        strong: ({node, ...props}) => (
+                          <strong className={cn(
+                            "font-bold",
+                                    isDark ? "text-white" : "text-black"
+                          )} {...props} />
+                        ),
+                        p: ({node, ...props}) => (
+                          <p className="mb-2 last:mb-0" {...props} />
+                        )
+                      }}
+                    >
+                      {note.content}
+                    </ReactMarkdown>
                   </div>
                 </motion.div>
               ))}
@@ -2098,7 +1897,7 @@ export default function Dashboard() {
                                 {website.url}
                               </a>
                             </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2116,7 +1915,7 @@ export default function Dashboard() {
                                   handleColorChange(website.id, nextColor, 'website');
                                 }}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
+                                  "p-1 rounded-lg transition-colors",
                                   isDark 
                                     ? "hover:bg-white/10 text-white/60 hover:text-white" 
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
@@ -2130,7 +1929,7 @@ export default function Dashboard() {
                                   handleDeleteWebsite(website.id);
                                 }}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
+                                  "p-1 rounded-lg transition-colors",
                                   isDark 
                                     ? "hover:bg-white/10 text-white/60 hover:text-white" 
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
@@ -2209,7 +2008,7 @@ export default function Dashboard() {
                                 </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2227,7 +2026,7 @@ export default function Dashboard() {
                                   handleColorChange(document.id, nextColor, 'document');
                                 }}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
+                                  "p-1 rounded-lg transition-colors",
                                   isDark 
                                     ? "hover:bg-white/10 text-white/60 hover:text-white" 
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
@@ -2241,7 +2040,7 @@ export default function Dashboard() {
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
+                                  "p-1 rounded-lg transition-colors",
                                   isDark 
                                     ? "hover:bg-white/10 text-white/60 hover:text-white" 
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
@@ -2256,7 +2055,7 @@ export default function Dashboard() {
                                   handleDeleteDocument(document.id, document.file_path);
                                 }}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
+                                  "p-1 rounded-lg transition-colors",
                                   isDark 
                                     ? "hover:bg-white/10 text-white/60 hover:text-white" 
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
@@ -2324,10 +2123,10 @@ export default function Dashboard() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
                 >
                   <div 
-                    className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
+                    className="fixed inset-0 w-full h-screen z-40 bg-black/70 backdrop-blur-md"
                     onClick={() => setSelectedNote(null)}
                   />
                   <motion.div
@@ -2335,59 +2134,48 @@ export default function Dashboard() {
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.95, opacity: 0 }}
                     className={cn(
-                      "relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
+                      "relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-xl p-6 shadow-2xl",
                       isDark 
                         ? "bg-black/80 border border-white/10" 
                         : "bg-white/90 border border-black/5"
                     )}
-                    style={{ position: 'relative', overflow: 'hidden' }}
                   >
-                    {selectedNote.image_url && (
-                      <div 
-                        className="absolute inset-0 bg-cover bg-center opacity-40"
-                        style={{ backgroundImage: `url(${selectedNote.image_url})` }}
-                      />
-                    )}
+                    <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
+                      <button
+                        onClick={() => {
+                          handleEditNote(selectedNote);
+                          setSelectedNote(null);
+                        }}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setSelectedNote(null)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
                     
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className={cn(
-                          "text-2xl font-semibold",
-                          isDark ? "text-white/90" : "text-black/90"
-                        )}>
-                          {selectedNote.title}
-                        </h2>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              handleEditNote(selectedNote);
-                              setSelectedNote(null);
-                            }}
-                            className={cn(
-                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors",
-                              isDark 
-                                ? "bg-white/10 hover:bg-white/20 text-white" 
-                                : "bg-black/10 hover:bg-black/20 text-black"
-                            )}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                            <span className="text-sm font-medium">Edit</span>
-                          </button>
-                          <button
-                            onClick={() => setSelectedNote(null)}
-                            className={cn(
-                              "p-2 rounded-lg transition-colors",
-                              isDark 
-                                ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                                : "hover:bg-black/10 text-black/60 hover:text-black"
-                            )}
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 text-sm mb-6">
+                    <div className="mb-6">
+                      <h2 className={cn(
+                        "text-2xl font-semibold mb-2",
+                        isDark ? "text-white/90" : "text-black/90"
+                      )}>
+                        {selectedNote.title}
+                      </h2>
+                      <div className="flex items-center gap-2 text-sm">
                         <Calendar className="w-4 h-4" />
                         <span className={cn(
                           isDark ? "text-white/40" : "text-black/40"
@@ -2395,12 +2183,158 @@ export default function Dashboard() {
                           {formatDate(selectedNote.created_at)}
                         </span>
                       </div>
+                    </div>
 
-                      <div className={cn(
-                        "prose prose-lg max-w-none",
-                        isDark ? "prose-invert text-white/80" : "text-black/80",
-                        "whitespace-pre-wrap"
+                    <div className={cn(
+                      "prose prose-lg max-w-none",
+                      isDark ? "prose-invert text-white/80" : "text-black/80",
+                      "whitespace-pre-wrap"
+                    )}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          strong: ({node, ...props}) => (
+                            <strong className={cn(
+                              "font-bold",
+                              isDark ? "text-white" : "text-black"
+                            )} {...props} />
+                          ),
+                          p: ({node, ...props}) => (
+                            <p className="mb-4 last:mb-0" {...props} />
+                          )
+                        }}
+                      >
+                        {selectedNote.content}
+                      </ReactMarkdown>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Full Screen Document Modal */}
+            <AnimatePresence>
+              {selectedDocument && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+                >
+                  <div 
+                    className="fixed inset-0 w-full h-screen z-40 bg-black/70 backdrop-blur-md"
+                    onClick={() => setSelectedDocument(null)}
+                  />
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className={cn(
+                      "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl",
+                      isDark 
+                        ? "bg-black/80 border border-white/10" 
+                        : "bg-white/90 border border-black/5"
+                    )}
+                  >
+                    <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
+                      <a
+                        href={selectedDocument.publicUrl}
+                        download={selectedDocument.title}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <File className="w-5 h-5" />
+                      </a>
+                      <button
+                        onClick={() => setSelectedDocument(null)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <h2 className={cn(
+                        "text-2xl font-semibold mb-2",
+                        isDark ? "text-white/90" : "text-black/90"
                       )}>
+                        {selectedDocument.title}
+                      </h2>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span className={cn(
+                          isDark ? "text-white/40" : "text-black/40"
+                        )}>
+                          {formatDate(selectedDocument.created_at)}
+                        </span>
+                        <span className={cn(
+                          "ml-2 px-2 py-0.5 rounded text-xs uppercase",
+                          isDark ? "bg-white/10 text-white/60" : "bg-black/10 text-black/60"
+                        )}>
+                          {selectedDocument.file_type.split('/')[1]}
+                        </span>
+                        <span className={cn(
+                          isDark ? "text-white/40" : "text-black/40"
+                        )}>
+                          {(selectedDocument.file_size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedDocument.file_type === 'application/pdf' ? (
+                      <div className="relative w-full h-[70vh] rounded-lg border overflow-hidden">
+                        <iframe
+                          src={selectedDocument.publicUrl}
+                          className="absolute inset-0 w-full h-full"
+                          style={{
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className={cn(
+                        "flex flex-col items-center justify-center py-12 text-center",
+                        isDark ? "text-white/60" : "text-black/60"
+                      )}>
+                        <File className="w-12 h-12 mb-4 opacity-40" />
+                        <p className="mb-2">This document type cannot be previewed</p>
+                        <a
+                          href={selectedDocument.publicUrl}
+                          download={selectedDocument.title}
+                          className={cn(
+                            "text-sm px-4 py-2 rounded-lg transition-colors",
+                            isDark 
+                              ? "bg-white/10 hover:bg-white/20" 
+                              : "bg-black/10 hover:bg-black/20"
+                          )}
+                        >
+                          Download Document
+                        </a>
+                      </div>
+                    )}
+
+                    {selectedDocument.content && (
+                      <div className={cn(
+                        "mt-6 prose prose-lg max-w-none",
+                        isDark ? "prose-invert text-white/80" : "text-black/80"
+                      )}>
+                        <h3 className={cn(
+                          "text-lg font-medium mb-2",
+                          isDark ? "text-white/90" : "text-black/90"
+                        )}>
+                          Notes
+                        </h3>
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
@@ -2415,294 +2349,148 @@ export default function Dashboard() {
                             )
                           }}
                         >
-                          {selectedNote.content}
+                          {selectedDocument.content}
                         </ReactMarkdown>
                       </div>
-                    </div>
+                    )}
                   </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-              {/* Full Screen Document Modal */}
-              <AnimatePresence>
-                {selectedDocument && (
+            {/* Full Screen Website Modal */}
+            <AnimatePresence>
+              {selectedWebsite && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+                >
+                  <div 
+                    className="fixed inset-0 w-full h-screen z-40 bg-black/70 backdrop-blur-md"
+                    onClick={() => setSelectedWebsite(null)}
+                  />
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className={cn(
+                      "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl",
+                      isDark 
+                        ? "bg-black/80 border border-white/10" 
+                        : "bg-white/90 border border-black/5"
+                    )}
                   >
-                    <div 
-                      className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
-                      onClick={() => setSelectedDocument(null)}
-                    />
-                    <motion.div
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.95, opacity: 0 }}
-                      className={cn(
-                        "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
-                        isDark 
-                          ? "bg-black/80 border border-white/10" 
-                          : "bg-white/90 border border-black/5"
-                      )}
-                    >
-                      <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
-                        <a
-                          href={selectedDocument.publicUrl}
-                          download={selectedDocument.title}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <File className="w-5 h-5" />
-                        </a>
-                        <button
-                          onClick={() => setSelectedDocument(null)}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      
-                      <div className="mb-6">
-                        <h2 className={cn(
-                          "text-2xl font-semibold mb-2",
-                          isDark ? "text-white/90" : "text-black/90"
-                        )}>
-                          {selectedDocument.title}
-                        </h2>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4" />
-                          <span className={cn(
-                            isDark ? "text-white/40" : "text-black/40"
-                          )}>
-                            {formatDate(selectedDocument.created_at)}
-                          </span>
-                          <span className={cn(
-                            "ml-2 px-2 py-0.5 rounded text-xs uppercase",
-                            isDark ? "bg-white/10 text-white/60" : "bg-black/10 text-black/60"
-                          )}>
-                            {selectedDocument.file_type.split('/')[1]}
-                          </span>
-                          <span className={cn(
-                            isDark ? "text-white/40" : "text-black/40"
-                          )}>
-                            {(selectedDocument.file_size / 1024 / 1024).toFixed(2)} MB
-                          </span>
-                        </div>
-                      </div>
-
-                      {selectedDocument.file_type === 'application/pdf' ? (
-                        <div className="relative w-full h-[70vh] rounded-lg border overflow-hidden">
-                          <iframe
-                            src={selectedDocument.publicUrl}
-                            className="absolute inset-0 w-full h-full"
-                            style={{
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className={cn(
-                          "flex flex-col items-center justify-center py-12 text-center",
-                          isDark ? "text-white/60" : "text-black/60"
-                        )}>
-                          <File className="w-12 h-12 mb-4 opacity-40" />
-                          <p className="mb-2">This document type cannot be previewed</p>
-                          <a
-                            href={selectedDocument.publicUrl}
-                            download={selectedDocument.title}
-                            className={cn(
-                              "text-sm px-4 py-2 rounded-lg transition-colors",
-                              isDark 
-                                ? "bg-white/10 hover:bg-white/20" 
-                                : "bg-black/10 hover:bg-black/20"
-                            )}
-                          >
-                            Download Document
-                          </a>
-                        </div>
-                      )}
-
-                      {selectedDocument.content && (
-                        <div className={cn(
-                          "mt-6 prose prose-lg max-w-none",
-                          isDark ? "prose-invert text-white/80" : "text-black/80"
-                        )}>
-                          <h3 className={cn(
-                            "text-lg font-medium mb-2",
-                            isDark ? "text-white/90" : "text-black/90"
-                          )}>
-                            Notes
-                          </h3>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              strong: ({node, ...props}) => (
-                                <strong className={cn(
-                                  "font-bold",
-                                  isDark ? "text-white" : "text-black"
-                                )} {...props} />
-                              ),
-                              p: ({node, ...props}) => (
-                                <p className="mb-4 last:mb-0" {...props} />
-                              )
-                            }}
-                          >
-                            {selectedDocument.content}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Full Screen Website Modal */}
-              <AnimatePresence>
-                {selectedWebsite && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                  >
-                    <div 
-                      className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
-                      onClick={() => setSelectedWebsite(null)}
-                    />
-                    <motion.div
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.95, opacity: 0 }}
-                      className={cn(
-                        "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
-                        isDark 
-                          ? "bg-black/80 border border-white/10" 
-                          : "bg-white/90 border border-black/5"
-                      )}
-                    >
-                      <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
-                        <a
-                          href={selectedWebsite.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <LinkIcon className="w-5 h-5" />
-                        </a>
-                        <button
-                          onClick={() => setSelectedWebsite(null)}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      
-                      <div className="mb-6">
-                        <h2 className={cn(
-                          "text-2xl font-semibold mb-2",
-                          isDark ? "text-white/90" : "text-black/90"
-                        )}>
-                          {selectedWebsite.title}
-                        </h2>
-                        <a 
-                          href={selectedWebsite.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "text-sm hover:underline",
-                            isDark ? "text-blue-400" : "text-blue-600"
-                          )}
-                        >
-                          {selectedWebsite.url}
-                        </a>
-                        <div className="flex items-center gap-2 mt-2 text-sm">
-                          <Calendar className="w-4 h-4" />
-                          <span className={cn(
-                            isDark ? "text-white/40" : "text-black/40"
-                          )}>
-                            {formatDate(selectedWebsite.created_at)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {selectedWebsite.content && (
-                        <div className={cn(
-                          "prose prose-lg max-w-none",
-                          isDark ? "prose-invert text-white/80" : "text-black/80"
-                        )}>
-                          <h3 className={cn(
-                            "text-lg font-medium mb-2",
-                            isDark ? "text-white/90" : "text-black/90"
-                          )}>
-                            Notes
-                          </h3>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              strong: ({node, ...props}) => (
-                                <strong className={cn(
-                                  "font-bold",
-                                  isDark ? "text-white" : "text-black"
-                                )} {...props} />
-                              ),
-                              p: ({node, ...props}) => (
-                                <p className="mb-4 last:mb-0" {...props} />
-                              )
-                            }}
-                          >
-                            {selectedWebsite.content}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-
-                      <div className={cn(
-                        "mt-6 p-8 rounded-lg text-center",
-                        isDark ? "bg-white/5" : "bg-black/5"
+                    <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
+                      <a
+                        href={selectedWebsite.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <LinkIcon className="w-5 h-5" />
+                      </a>
+                      <button
+                        onClick={() => setSelectedWebsite(null)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark 
+                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            : "hover:bg-black/10 text-black/60 hover:text-black"
+                        )}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <h2 className={cn(
+                        "text-2xl font-semibold mb-2",
+                        isDark ? "text-white/90" : "text-black/90"
                       )}>
-                        <div className={cn(
-                          "text-lg mb-4",
-                          isDark ? "text-white/80" : "text-black/80"
+                        {selectedWebsite.title}
+                      </h2>
+                      <a 
+                        href={selectedWebsite.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "text-sm hover:underline",
+                          isDark ? "text-blue-400" : "text-blue-600"
+                        )}
+                      >
+                        {selectedWebsite.url}
+                      </a>
+                      <div className="flex items-center gap-2 mt-2 text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span className={cn(
+                          isDark ? "text-white/40" : "text-black/40"
                         )}>
-                          This website cannot be embedded due to security restrictions.
-                        </div>
-                        <a
-                          href={selectedWebsite.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-colors",
-                            isDark 
-                              ? "bg-white/10 hover:bg-white/20 text-white" 
-                              : "bg-black/10 hover:bg-black/20 text-black"
-                          )}
+                          {formatDate(selectedWebsite.created_at)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedWebsite.content && (
+                      <div className={cn(
+                        "prose prose-lg max-w-none",
+                        isDark ? "prose-invert text-white/80" : "text-black/80"
+                      )}>
+                        <h3 className={cn(
+                          "text-lg font-medium mb-2",
+                          isDark ? "text-white/90" : "text-black/90"
+                        )}>
+                          Notes
+                        </h3>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            strong: ({node, ...props}) => (
+                              <strong className={cn(
+                                "font-bold",
+                                isDark ? "text-white" : "text-black"
+                              )} {...props} />
+                            ),
+                            p: ({node, ...props}) => (
+                              <p className="mb-4 last:mb-0" {...props} />
+                            )
+                          }}
                         >
-                          <LinkIcon className="w-5 h-5" />
-                          Open Website in New Tab
-                        </a>
+                          {selectedWebsite.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+
+                    <div className={cn(
+                      "mt-6 p-8 rounded-lg text-center",
+                      isDark ? "bg-white/5" : "bg-black/5"
+                    )}>
+                      <div className={cn(
+                        "text-lg mb-4",
+                        isDark ? "text-white/80" : "text-black/80"
+                      )}>
+                        This website cannot be embedded due to security restrictions.
+                      </div>
+                      <a
+                        href={selectedWebsite.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-colors",
+                          isDark 
+                            ? "bg-white/10 hover:bg-white/20 text-white" 
+                            : "bg-black/10 hover:bg-black/20 text-black"
+                        )}
+                      >
+                        <LinkIcon className="w-5 h-5" />
+                        Open Website in New Tab
+                      </a>
                     </div>
                   </motion.div>
                 </motion.div>
@@ -2710,7 +2498,6 @@ export default function Dashboard() {
             </AnimatePresence>
           </div>
         </main>
-        </div>
       </div>
     </div>
   )
