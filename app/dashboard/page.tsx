@@ -2441,22 +2441,21 @@ export default function Dashboard() {
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.95, opacity: 0 }}
                     className={cn(
-                      "relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
+                      "relative w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl z-50 flex flex-col",
                       isDark 
                         ? "bg-black/80 border border-white/10" 
                         : "bg-white/90 border border-black/5"
                     )}
-                    style={{ position: 'relative', overflow: 'hidden' }}
                   >
                     {selectedNote.image_url && (
                       <div 
-                        className="absolute inset-0 bg-cover bg-center opacity-40"
-                        style={{ backgroundImage: `url(${selectedNote.image_url})` }}
+                        className="absolute inset-0 bg-cover bg-center opacity-40 rounded-xl"
+                        style={{ backgroundImage: `url(${selectedNote.image_url})`, pointerEvents: 'none' }}
                       />
                     )}
                     
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-between mb-6">
+                    <div className="relative z-10 p-6 pb-3 border-b border-gray-200/10">
+                      <div className="flex items-center justify-between">
                         <h2 className={cn(
                           "text-2xl font-semibold",
                           isDark ? "text-white/90" : "text-black/90"
@@ -2493,15 +2492,17 @@ export default function Dashboard() {
                         </div>
                     </div>
                     
-                      <div className="flex items-center gap-2 text-sm mb-6">
+                      <div className="flex items-center gap-2 text-sm mt-2">
                         <Calendar className="w-4 h-4" />
                         <span className={cn(
                           isDark ? "text-white/40" : "text-black/40"
                         )}>
                           {formatDate(selectedNote.created_at)}
                         </span>
+                      </div>
                     </div>
 
+                    <div className="relative z-10 flex-1 overflow-y-auto p-6 pt-4">
                     <div className={cn(
                       "prose prose-lg max-w-none",
                       isDark ? "prose-invert text-white/80" : "text-black/80",

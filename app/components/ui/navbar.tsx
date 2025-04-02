@@ -3,8 +3,8 @@
 import React, { useState } from "react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { LogOut, MessageSquarePlus, Menu, User, ChevronDown, Settings, Sparkle, Star, Bot, Zap, Brain } from 'lucide-react'
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { LogOut, MessageSquarePlus, Menu, User, ChevronDown, Settings, Sparkle, Star, Bot, Zap, Brain, Moon, Sun } from 'lucide-react'
+import { useTheme } from "next-themes"
 import { useUser } from '@/contexts/UserContext'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
@@ -29,6 +29,21 @@ export function Navbar({
 }: NavbarProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const { profile } = useUser()
+  const { resolvedTheme, setTheme } = useTheme()
+
+  // Function to handle theme change with animation
+  const handleThemeChange = () => {
+    // Add animation class to the document body
+    document.body.classList.add('theme-transition');
+    
+    // Toggle theme
+    setTheme(isDark ? "light" : "dark");
+    
+    // Remove the class after animation completes
+    setTimeout(() => {
+      document.body.classList.remove('theme-transition');
+    }, 400); // Match the duration in CSS
+  }
 
   return (
     <div className={cn(
@@ -47,7 +62,7 @@ export function Navbar({
           <button
             onClick={onToggleSidebar}
             className={cn(
-              "p-1.5 sm:p-2 rounded-lg transition-colors",
+              "hidden md:block p-1.5 sm:p-2 rounded-lg transition-colors",
               isDark 
                 ? "hover:bg-zinc-800 text-zinc-400" 
                 : "hover:bg-zinc-100 text-zinc-600"
@@ -58,11 +73,15 @@ export function Navbar({
           <Link 
             href="/dashboard" 
             className={cn(
-              "text-xl sm:text-2xl font-calendas italic tracking-tight",
+              "text-xl sm:text-2xl font-calendas italic tracking-tight pl-1 sm:pl-0",
+              "relative transition-all duration-300",
               isDark ? "text-white" : "text-black"
             )}
           >
-            mind-it.
+            <span className="relative">
+              mind-it
+              <span className="text-purple-500 dark:text-purple-400">.</span>
+            </span>
           </Link>
         </div>
 
@@ -104,7 +123,43 @@ export function Navbar({
               "group-hover:translate-x-0.5"
             )}>Memory</span>
           </button>
-          <ThemeToggle className="hidden sm:flex" />
+          <button
+            onClick={handleThemeChange}
+            className={cn(
+              "p-1.5 rounded-md transition-all duration-200 relative overflow-hidden group",
+              "hover:scale-110 active:scale-95",
+              isDark 
+                ? "bg-zinc-800/80 text-yellow-300 hover:bg-zinc-800" 
+                : "bg-zinc-100/80 text-blue-500 hover:bg-zinc-200/80"
+            )}
+            aria-label="Toggle theme"
+          >
+            <div className="relative w-4 h-4">
+              <div 
+                className={cn(
+                  "absolute inset-0 transition-all duration-300 transform",
+                  isDark ? "opacity-100 rotate-0" : "opacity-0 rotate-90 scale-50"
+                )}
+              >
+                <Sun className="w-4 h-4" />
+              </div>
+              <div 
+                className={cn(
+                  "absolute inset-0 transition-all duration-300 transform",
+                  isDark ? "opacity-0 -rotate-90 scale-50" : "opacity-100 rotate-0"
+                )}
+              >
+                <Moon className="w-4 h-4" />
+              </div>
+            </div>
+            <div 
+              className={cn(
+                "absolute inset-0 w-full h-full transform scale-0 group-hover:scale-100 transition-transform duration-300 origin-center",
+                "opacity-20 rounded-full",
+                isDark ? "bg-yellow-300" : "bg-blue-500"
+              )}
+            />
+          </button>
           <div className="relative">
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}

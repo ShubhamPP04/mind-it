@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    --transition-duration: 400ms;
+    --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
     --radius: 0.625rem;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
@@ -75,9 +77,41 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
+  html {
+    transition: background-color var(--transition-duration) var(--transition-timing),
+                color var(--transition-duration) var(--transition-timing);
+  }
+  
   body {
     @apply bg-background text-foreground;
+    transition: background-color var(--transition-duration) var(--transition-timing),
+                color var(--transition-duration) var(--transition-timing);
   }
+  
+  /* Add transitions to common elements that change with theme */
+  button, a, div, span, nav, header, footer, main, aside, input, textarea, select {
+    transition: background-color var(--transition-duration) var(--transition-timing),
+                color var(--transition-duration) var(--transition-timing),
+                border-color var(--transition-duration) var(--transition-timing),
+                box-shadow var(--transition-duration) var(--transition-timing);
+  }
+}
+
+/* Theme change animation for the entire page */
+@keyframes theme-fade {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.theme-transition {
+  animation: theme-fade var(--transition-duration) var(--transition-timing);
 }
 
 .font-calendas {
