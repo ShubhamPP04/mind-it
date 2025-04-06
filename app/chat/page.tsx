@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
-import { Send, Bot, User, X, ChevronLeft, ExternalLink, History, PlusCircle, MessagesSquare } from 'lucide-react'
+import { Send, Bot, User, X, ChevronLeft, ExternalLink, History, PlusCircle, MessagesSquare, Copy, RefreshCw, Trash2, Globe } from 'lucide-react'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
 import { ChatGenerationAnimation } from '@/components/ui/chat-generation-animation'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -20,7 +20,7 @@ interface Message {
   content: string
   id?: string
   sources?: Array<{
-    type: 'note' | 'website' | 'document'
+    type: 'note' | 'website' | 'document' | 'web-search'
     id: string
     title: string
     url?: string
@@ -70,6 +70,9 @@ export default function ChatPage() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [showConversations, setShowConversations] = useState(false)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const [userContent, setUserContent] = useState<{
     notes: Note[]
     websites: Website[]
@@ -87,15 +90,22 @@ export default function ChatPage() {
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === 'dark' : false
   const [selectedModel, setSelectedModel] = useState<Model>({
-    provider: 'openrouter',
-    name: 'google/gemini-2.5-pro-exp-03-25:free',
-    displayName: 'Gemini 2.5 Pro Exp'
+    provider: 'gemini',
+    name: 'gemini-2.0-flash',
+    displayName: 'Gemini 2.0 Flash'
   })
   const supabase = createClient()
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Disable web search when switching to Gemini models
+  useEffect(() => {
+    if (selectedModel.provider === 'gemini' && webSearchEnabled) {
+      setWebSearchEnabled(false)
+    }
+  }, [selectedModel, webSearchEnabled])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -363,6 +373,11 @@ export default function ChatPage() {
     const userMessage = input.trim()
     setInput('')
 
+    // Immediately focus on the input field after submitting
+    setTimeout(() => {
+      inputRef.current?.focus()
+    }, 0)
+
     // Find relevant content before generating response
     const relevantSources = findRelevantContent(userMessage)
 
@@ -382,6 +397,11 @@ export default function ChatPage() {
     // Add user message to state first for immediate feedback
     const userMsg: Message = { role: 'user', content: userMessage }
     setMessages(prev => [...prev, userMsg])
+
+    // Ensure the message is visible by scrolling to bottom
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
 
     // Save user message to database
     const savedUserMsg = await saveMessage(userMsg, conversationId)
@@ -425,33 +445,61 @@ export default function ChatPage() {
     }
 
     setIsGenerating(true)
+    if (webSearchEnabled) {
+      setIsSearching(true)
+    }
 
     try {
-      // Include relevant content in the prompt
-      const contextPrompt = relevantSources.length > 0
-        ? `Based on the following saved content:\n\n${relevantSources.map(source =>
-            `[${source.type.toUpperCase()}] ${source.title}\n${source.content}\n`
-          ).join('\n')}\n\nUser question: ${userMessage}`
-        : userMessage
+      // Get previous messages for context (limit to last 10 messages for context window)
+      const previousMessages = messages.slice(-10);
+
+      // Format conversation history
+      const conversationHistory = previousMessages
+        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
+
+      // Include both conversation history and relevant content in the prompt
+      let contextPrompt;
+
+      if (relevantSources.length > 0) {
+        // If we have relevant sources, include them
+        contextPrompt = `Conversation history:\n${conversationHistory}\n\nBased on the following information:\n\n${relevantSources.map(source =>
+          `[${source.type.toUpperCase()}] ${source.title}\n${source.content}\n`
+        ).join('\n')}\n\nUser's latest question: ${userMessage}`;
+      } else if (previousMessages.length > 1) {
+        // If we have conversation history but no relevant sources
+        contextPrompt = `Conversation history:\n${conversationHistory}\n\nUser's latest question: ${userMessage}`;
+      } else {
+        // If this is the first message with no relevant sources
+        contextPrompt = userMessage;
+      }
 
       if (selectedModel.provider === 'gemini') {
         const response = await generateNoteContent(contextPrompt)
         const assistantMsg: Message = {
           role: 'assistant',
           content: response,
-          sources: relevantSources
+          sources: relevantSources.length > 0 ? relevantSources : undefined
         }
 
         // Add to state and save to database
         setMessages(prev => [...prev, assistantMsg])
         await saveMessage(assistantMsg, conversationId)
       } else {
-        const response = await generateOpenRouterContent(selectedModel.name, contextPrompt)
+        // For OpenRouter models, pass the webSearchEnabled flag
+        const response = await generateOpenRouterContent(
+          selectedModel.name, 
+          contextPrompt,
+          webSearchEnabled
+        )
+        
+        setIsSearching(false)
+        
         if (typeof response === 'string') {
           const assistantMsg: Message = {
             role: 'assistant',
             content: response,
-            sources: relevantSources
+            sources: relevantSources.length > 0 ? relevantSources : undefined
           }
 
           setMessages(prev => [...prev, assistantMsg])
@@ -491,12 +539,12 @@ export default function ChatPage() {
                         const newMessages = [...prev]
                         if (newMessages[newMessages.length - 1]?.role === 'assistant') {
                           newMessages[newMessages.length - 1].content = accumulatedContent
-                          newMessages[newMessages.length - 1].sources = relevantSources
+                          newMessages[newMessages.length - 1].sources = relevantSources.length > 0 ? relevantSources : undefined
                         } else {
                           newMessages.push({
                             role: 'assistant',
                             content: accumulatedContent,
-                            sources: relevantSources
+                            sources: relevantSources.length > 0 ? relevantSources : undefined
                           })
                         }
                         return newMessages
@@ -513,10 +561,9 @@ export default function ChatPage() {
             const finalAssistantMsg: Message = {
               role: 'assistant',
               content: accumulatedContent,
-              sources: relevantSources
+              sources: relevantSources.length > 0 ? relevantSources : undefined
             }
             await saveMessage(finalAssistantMsg, conversationId)
-
           } catch (error) {
             console.error('Error reading stream:', error)
           } finally {
@@ -537,6 +584,7 @@ export default function ChatPage() {
       }
     } finally {
       setIsGenerating(false)
+      setIsSearching(false)
     }
   }
 
@@ -594,60 +642,64 @@ export default function ChatPage() {
             )}>AI Chat</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => setShowConversations(!showConversations)}
-              className={cn(
-                "flex items-center justify-center p-1.5 sm:p-2 rounded-md transition-all duration-300",
-                "border relative overflow-hidden group",
-                isDark
-                  ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400"
-                  : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
-              )}
-              aria-label="Chat history"
-            >
-              <div className={cn(
-                "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
-                isDark
-                  ? "bg-zinc-800/30"
-                  : "bg-zinc-100/80",
-                "origin-left"
-              )} />
-              <MessagesSquare className={cn(
-                "w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 relative z-10",
-                "group-hover:scale-110"
-              )} />
-            </button>
-            <button
-              onClick={() => {
-                setMessages([])
-                setCurrentConversationId(null)
-              }}
-              className={cn(
-                "flex items-center justify-center p-1.5 sm:p-2 rounded-md transition-all duration-300",
-                "border relative overflow-hidden group",
-                isDark
-                  ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400"
-                  : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
-              )}
-              aria-label="New chat"
-            >
-              <div className={cn(
-                "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
-                isDark
-                  ? "bg-zinc-800/30"
-                  : "bg-zinc-100/80",
-                "origin-left"
-              )} />
-              <PlusCircle className={cn(
-                "w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 relative z-10",
-                "group-hover:scale-110"
-              )} />
-            </button>
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-              isDark={isDark}
-            />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={() => setShowConversations(!showConversations)}
+                className={cn(
+                  "flex items-center justify-center p-1.5 sm:p-2 rounded-md transition-all duration-300",
+                  "border relative overflow-hidden group",
+                  isDark
+                    ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400"
+                    : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
+                )}
+                aria-label="Chat history"
+              >
+                <div className={cn(
+                  "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
+                  isDark
+                    ? "bg-zinc-800/30"
+                    : "bg-zinc-100/80",
+                  "origin-left"
+                )} />
+                <MessagesSquare className={cn(
+                  "w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 relative z-10",
+                  "group-hover:scale-110"
+                )} />
+              </button>
+              <button
+                onClick={() => {
+                  setMessages([])
+                  setCurrentConversationId(null)
+                }}
+                className={cn(
+                  "flex items-center justify-center p-1.5 sm:p-2 rounded-md transition-all duration-300",
+                  "border relative overflow-hidden group",
+                  isDark
+                    ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400"
+                    : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
+                )}
+                aria-label="New chat"
+              >
+                <div className={cn(
+                  "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
+                  isDark
+                    ? "bg-zinc-800/30"
+                    : "bg-zinc-100/80",
+                  "origin-left"
+                )} />
+                <PlusCircle className={cn(
+                  "w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 relative z-10",
+                  "group-hover:scale-110"
+                )} />
+              </button>
+            </div>
+            <div className="ml-auto">
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+                isDark={isDark}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -735,17 +787,20 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto pt-20 pb-32 bg-gradient-to-b from-transparent">
+      <div className="flex-1 overflow-y-auto pt-20 pb-36 sm:pb-40 bg-gradient-to-b from-transparent">
         <div className="max-w-4xl mx-auto px-3 sm:px-4">
           <div className="space-y-5 sm:space-y-7">
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="sync">
               {messages.map((message, index) => (
                 <motion.div
                   key={message.id || index}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{
+                    duration: message.role === 'user' ? 0.1 : 0.3,
+                    delay: message.role === 'user' ? 0 : 0.1
+                  }}
                   className={cn(
                     "flex gap-2 sm:gap-4 text-sm leading-relaxed",
                     message.role === 'assistant' && "items-start",
@@ -763,7 +818,12 @@ export default function ChatPage() {
                   <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.3, type: "spring", stiffness: 100 }}
+                    transition={{
+                      duration: message.role === 'user' ? 0.1 : 0.3,
+                      type: "spring",
+                      stiffness: message.role === 'user' ? 200 : 100,
+                      delay: message.role === 'user' ? 0 : 0.1
+                    }}
                     className={cn(
                       "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-5 sm:py-4 break-words group shadow-md",
                       message.role === 'assistant' ? (
@@ -777,18 +837,102 @@ export default function ChatPage() {
                       )
                     )}
                   >
-                    {/* Delete button */}
-                    {message.id && (
-                      <button
-                        onClick={() => deleteMessage(message.id!)}
-                        className={cn(
-                          "absolute top-1 right-1 sm:top-2 sm:right-2 p-1 rounded-md opacity-50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10",
-                          isDark ? "hover:bg-white/10 text-white/70" : "hover:bg-black/10 text-black/70"
+                    {/* Removed the top-right delete button */}
+
+                    {/* Function buttons that appear on hover */}
+                    <div
+                      className={cn(
+                        "absolute -bottom-8 left-0 right-0 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-200",
+                        "px-0 py-1 z-20 translate-y-1 group-hover:translate-y-0 w-full"
+                      )}
+                    >
+                      {/* Left side buttons */}
+                      <div className={cn(
+                        "flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg shadow-md backdrop-blur-sm",
+                        isDark
+                          ? "bg-zinc-800/95 border border-white/10"
+                          : "bg-white/95 border border-black/10"
+                      )}>
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(message.content);
+                            if (message.id) {
+                              setCopiedMessageId(message.id);
+                              setTimeout(() => setCopiedMessageId(null), 2000);
+                            }
+                          }}
+                          className={cn(
+                            "p-1.5 rounded-md transition-colors flex items-center gap-1.5",
+                            message.id && copiedMessageId === message.id
+                              ? (isDark ? "bg-green-500/20 text-green-400" : "bg-green-500/20 text-green-600")
+                              : (isDark ? "hover:bg-white/10 text-white/70" : "hover:bg-black/10 text-black/70")
+                          )}
+                          title="Copy message"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          {message.id && copiedMessageId === message.id && (
+                            <span className="text-xs font-medium">Copied!</span>
+                          )}
+                        </button>
+
+                        {/* Regenerate button - only for assistant messages */}
+                        {message.role === 'assistant' && message.id && (
+                          <button
+                            onClick={async () => {
+                              if (!currentConversationId || !message.id) return;
+
+                              // Find the user message that preceded this assistant message
+                              const messageIndex = messages.findIndex(msg => msg.id === message.id);
+                              if (messageIndex <= 0) return; // No preceding message found
+
+                              const userMessage = messages[messageIndex - 1];
+                              if (userMessage.role !== 'user') return;
+
+                              // Delete the current assistant message
+                              await deleteMessage(message.id);
+
+                              // Set input to the user's message and submit
+                              setInput(userMessage.content);
+                              setTimeout(() => {
+                                const event = new Event('submit') as any;
+                                document.querySelector('form')?.dispatchEvent(event);
+                              }, 100);
+                            }}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors flex items-center gap-1.5",
+                              isDark ? "hover:bg-white/10 text-white/70" : "hover:bg-black/10 text-black/70"
+                            )}
+                            title="Regenerate response"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
                         )}
-                      >
-                        <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                      </button>
-                    )}
+
+                        </div>
+
+                      {/* Right side buttons */}
+                      {message.id && (
+                        <div className={cn(
+                          "flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg shadow-md backdrop-blur-sm",
+                          isDark
+                            ? "bg-zinc-800/95 border border-white/10"
+                            : "bg-white/95 border border-black/10"
+                        )}>
+                          {/* Delete button */}
+                          <button
+                            onClick={() => deleteMessage(message.id!)}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors flex items-center gap-1.5",
+                              isDark ? "hover:bg-white/10 text-white/70" : "hover:bg-black/10 text-black/70"
+                            )}
+                            title="Delete message"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     <div className={cn(
                       "prose prose-sm sm:prose-base max-w-none",
@@ -974,41 +1118,61 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input */}
+      {/* Input - With Web Search Toggle */}
       <div className={cn(
-        "fixed bottom-0 left-0 right-0 border-t backdrop-blur-md",
+        "fixed bottom-0 left-0 right-0 border-t backdrop-blur-md pb-6 sm:pb-8",
         isDark
-          ? "bg-zinc-900/80 border-zinc-800/50"
-          : "bg-white/80 border-zinc-200/50"
+          ? "bg-gradient-to-t from-zinc-900/95 via-zinc-900/90 to-zinc-900/80 border-zinc-800/50"
+          : "bg-gradient-to-t from-white/95 via-white/90 to-white/80 border-zinc-200/50"
       )}>
         <form
           onSubmit={handleSubmit}
-          className="max-w-4xl mx-auto p-3 sm:p-4"
+          className="max-w-2xl mx-auto px-3 sm:px-4 pt-3 sm:pt-4"
         >
           <div className="relative">
             <div className={cn(
               "flex items-center gap-2 mb-2",
-              "opacity-0 h-0 overflow-hidden transition-all duration-300",
-              input.length > 0 && "opacity-100 h-8"
+              input.length > 0 ? "opacity-100 h-8" : "opacity-100 h-8"
             )}>
-              <button
-                type="button"
-                onClick={() => setInput('')}
-                className={cn(
-                  "text-xs px-2 py-1 rounded-md transition-colors",
-                  isDark
-                    ? "bg-white/5 hover:bg-white/10 text-white/70"
-                    : "bg-black/5 hover:bg-black/10 text-black/70"
-                )}
-              >
-                Clear
-              </button>
+              {/* Web Search Toggle Button - Only show for OpenRouter models */}
+              {selectedModel.provider === 'openrouter' && (
+                <button
+                  type="button"
+                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors",
+                    webSearchEnabled 
+                      ? (isDark ? "bg-blue-600/80 text-white" : "bg-blue-500/80 text-white") 
+                      : (isDark ? "bg-white/5 text-white/70" : "bg-black/5 text-black/70")
+                  )}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Web Search</span>
+                </button>
+              )}
+
+              {input.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setInput('')}
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-md transition-colors",
+                    isDark
+                      ? "bg-white/5 hover:bg-white/10 text-white/70"
+                      : "bg-black/5 hover:bg-black/10 text-black/70"
+                  )}
+                >
+                  Clear
+                </button>
+              )}
             </div>
+            
+            {/* Rest of the input box */}
             <div className={cn(
-              "relative rounded-xl border shadow-md overflow-hidden",
+              "relative rounded-full border shadow-lg overflow-hidden max-w-full mx-auto transition-all duration-200",
               isDark
-                ? "bg-zinc-800/60 border-white/15 hover:border-white/20"
-                : "bg-white/60 border-black/15 hover:border-black/20",
+                ? "bg-zinc-800/80 border-white/10 hover:border-white/20 hover:bg-zinc-800/90"
+                : "bg-white/80 border-black/10 hover:border-black/20 hover:bg-white/90",
               isGenerating && "opacity-50 pointer-events-none"
             )}>
               <textarea
@@ -1020,37 +1184,43 @@ export default function ChatPage() {
                 rows={1}
                 disabled={isGenerating}
                 className={cn(
-                  "w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 bg-transparent outline-none resize-none",
-                  "text-sm sm:text-base",
-                  "placeholder:text-muted-foreground",
+                  "w-full px-4 py-3 sm:px-5 sm:py-3.5 pr-12 sm:pr-14 bg-transparent outline-none resize-none",
+                  "text-sm sm:text-base leading-relaxed",
+                  "placeholder:text-muted-foreground transition-all duration-200",
                   isDark
-                    ? "placeholder:text-white/30"
-                    : "placeholder:text-black/30"
+                    ? "placeholder:text-white/40 focus:placeholder:text-white/50"
+                    : "placeholder:text-black/40 focus:placeholder:text-black/50"
                 )}
                 style={{
-                  minHeight: '48px',
+                  minHeight: '56px',
                   maxHeight: '120px'
                 }}
               />
-              <div className="absolute right-1 bottom-1 flex items-center">
+              <div className="absolute right-2 sm:right-3 bottom-0 top-0 flex items-center justify-center">
                 <button
                   type="submit"
                   disabled={!input.trim() || isGenerating}
                   className={cn(
-                    "p-2 sm:p-2.5 rounded-lg transition-all duration-200 shadow-sm",
-                    isDark
-                      ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 hover:from-purple-600/50 hover:to-blue-600/50 text-white disabled:opacity-30 hover:shadow-md hover:scale-105"
-                      : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 hover:from-purple-500/40 hover:to-blue-500/40 text-white disabled:opacity-30 hover:shadow-md hover:scale-105"
+                    "p-2 rounded-full transition-all duration-200 shadow-sm",
+                    !input.trim()
+                      ? (isDark ? "text-white/30" : "text-black/30")
+                      : (isDark
+                          ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white hover:shadow-md hover:scale-105"
+                          : "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white hover:shadow-md hover:scale-105"
+                        ),
+                    isGenerating && "opacity-50 pointer-events-none"
                   )}
                 >
                   <Send className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-sm" />
                 </button>
               </div>
             </div>
-            <div className="flex justify-between items-center mt-2 text-xs">
+            
+            {/* Bottom info area with AI model name and web search indicator */}
+            <div className="flex justify-between items-center mt-2.5 text-xs">
               <div className={cn(
                 "text-xs",
-                isDark ? "text-white/50" : "text-black/50"
+                isDark ? "text-white/60" : "text-black/60"
               )}>
                 {isGenerating ? (
                   <div className="flex items-center gap-1.5">
@@ -1064,10 +1234,16 @@ export default function ChatPage() {
                         isDark ? "bg-purple-400/80" : "bg-purple-500/80"
                       )} />
                     </div>
-                    <span>AI is thinking...</span>
+                    <span>AI is thinking{isSearching ? ' and searching the web' : ''}...</span>
                   </div>
-                ) : "AI powered by Gemini & OpenRouter"}
+                ) : (
+                  <div>
+                    {selectedModel.provider === 'gemini' ? 'Google Gemini' : 'OpenRouter'}
+                    {webSearchEnabled && selectedModel.provider === 'openrouter' && ' + Web Search'}
+                  </div>
+                )}
               </div>
+              
               <div className="flex items-center gap-2">
                 <button
                   type="button"

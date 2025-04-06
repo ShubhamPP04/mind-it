@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from "@/lib/utils";
-import { ChevronDown, Sparkles, Zap, Brain, Star, Bot, Cpu, Atom, Lightbulb } from 'lucide-react';
+import { ChevronDown, Sparkles, Zap, Brain, Star, Bot, Cpu, Atom, Lightbulb, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
+import { useOnClickOutside } from '@/hooks/use-on-click-outside';
 
 export type Model = {
   provider: 'gemini' | 'openrouter';
@@ -77,13 +78,32 @@ interface ModelSelectorProps {
 
 export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useOnClickOutside(containerRef, () => setIsOpen(false));
+
+  // Check if we're on a mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center justify-between gap-2 h-10 px-4 rounded-lg text-sm transition-all duration-200 min-w-[200px]",
+          "flex items-center justify-between gap-2 h-10 transition-all duration-200",
+          isMobile
+            ? "px-3 rounded-lg"
+            : "px-4 rounded-lg min-w-[200px]",
           isDark
             ? "bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 border border-white/15 hover:border-white/25 text-white shadow-md hover:shadow-lg hover:from-zinc-800 hover:to-zinc-900"
             : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 border border-black/15 hover:border-black/25 text-black shadow-md hover:shadow-lg hover:from-zinc-50 hover:to-zinc-100",
@@ -91,14 +111,19 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
       >
         <div className="flex items-center gap-2">
           <div className={cn(
-            "flex items-center justify-center w-6 h-6 rounded-full", // Slightly larger icon container
+            "flex items-center justify-center rounded-full", // Slightly larger icon container
+            isMobile ? "w-5 h-5" : "w-6 h-6",
             selectedModel.provider === 'gemini'
               ? (isDark ? "bg-gradient-to-br from-purple-500/30 to-blue-500/30 border border-purple-500/40 shadow-sm shadow-purple-500/20" : "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 shadow-sm shadow-purple-500/10")
               : (isDark ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/40 shadow-sm shadow-blue-500/20" : "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 shadow-sm shadow-blue-500/10")
           )}>
-            {selectedModel.provider === 'gemini' ? <Sparkles className="w-3.5 h-3.5" /> : <Brain className="w-3.5 h-3.5" />}
+            {selectedModel.provider === 'gemini' ? <Sparkles className={cn(isMobile ? "w-3 h-3" : "w-3.5 h-3.5")} /> : <Brain className={cn(isMobile ? "w-3 h-3" : "w-3.5 h-3.5")} />}
           </div>
-          <span className="truncate font-medium">{selectedModel.displayName}</span>
+          {isMobile ? (
+            <span className="sr-only">{selectedModel.displayName}</span>
+          ) : (
+            <span className="truncate font-medium">{selectedModel.displayName}</span>
+          )}
         </div>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
@@ -116,7 +141,10 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, type: "spring", stiffness: 200 }}
             className={cn(
-              "absolute top-full left-0 mt-1.5 w-[320px] rounded-xl shadow-xl overflow-hidden z-50 backdrop-blur-sm", // Wider dropdown with rounded corners
+              "absolute mt-1.5 rounded-xl shadow-xl overflow-hidden z-50 backdrop-blur-sm", // Responsive dropdown
+              isMobile
+                ? "top-full right-0 w-[280px] max-w-[95vw]"
+                : "top-full left-0 w-[320px]",
               isDark
                 ? "bg-black/95 border border-white/15 shadow-purple-500/10"
                 : "bg-white/95 border border-black/15 shadow-purple-500/5"
@@ -135,6 +163,32 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                 closed: {}
               }}
             >
+              {/* Mobile header if on mobile */}
+              {isMobile && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={cn(
+                    "px-4 py-3 text-sm font-medium border-b flex items-center justify-between",
+                    isDark ? "text-white/90 border-white/15 bg-white/5" : "text-black/90 border-black/15 bg-black/5"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    <span>Select AI Model</span>
+                  </div>
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "p-1 rounded-md",
+                      isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    )}
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              )}
+
               {/* Gemini Section */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -163,7 +217,8 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "w-full text-left px-4 py-2.5 text-sm transition-all duration-200", // More vertical padding
+                      "w-full text-left transition-all duration-200", // More vertical padding
+                      isMobile ? "px-3 py-2" : "px-4 py-2.5",
                       isDark
                         ? "text-white hover:bg-white/10"
                         : "text-black hover:bg-black/10",
@@ -186,7 +241,7 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                         )}>Latest</span>
                       )}
                     </div>
-                    {model.description && (
+                    {model.description && !isMobile && (
                       <div className={cn(
                         "text-xs mt-0.5 flex items-center gap-1",
                         isDark ? "text-white/60" : "text-black/60"
@@ -257,7 +312,7 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                         )}>Experimental</span>
                       )}
                     </div>
-                    {model.description && (
+                    {model.description && !isMobile && (
                       <div className={cn(
                         "text-xs mt-0.5 flex items-center gap-1",
                         isDark ? "text-white/60" : "text-black/60"
