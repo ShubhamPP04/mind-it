@@ -21,6 +21,18 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
+    name: 'meta-llama/llama-4-maverick:free',
+    displayName: 'Llama 4 Maverick',
+    description: 'High-performance open model with excellent reasoning capabilities'
+  },
+  {
+    provider: 'openrouter',
+    name: 'openrouter/quasar-alpha',
+    displayName: 'Quasar Alpha',
+    description: 'Newest experimental model with superior multimodal capabilities'
+  },
+  {
+    provider: 'openrouter',
     name: 'google/gemini-pro:free',
     displayName: 'Gemini Pro',
     description: 'Most powerful Gemini model with 2M token context window'

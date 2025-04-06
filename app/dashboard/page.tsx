@@ -167,6 +167,24 @@ export default function Dashboard() {
         }
         setEmail(user.email || null)
 
+        // Get all URL parameters once
+        const params = new URLSearchParams(window.location.search)
+        const spaceId = params.get('spaceId')
+        const sourceType = params.get('type')
+        const sourceId = params.get('id')
+
+        console.log('URL parameters:', { spaceId, sourceType, sourceId })
+
+        // First fetch spaces
+        const { data: spacesData, error: spacesError } = await supabase
+          .from('spaces')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+
+        if (spacesError) throw spacesError
+        setSpaces(spacesData || [])
+
         // Ensure storage infrastructure is set up
         try {
           const storageResponse = await fetch('/api/storage')
@@ -177,86 +195,49 @@ export default function Dashboard() {
           console.warn('Could not verify storage setup:', storageError)
         }
 
-        // Get URL parameters for source navigation
-        const params = new URLSearchParams(window.location.search)
-        const sourceType = params.get('type')
-        const sourceId = params.get('id')
+        let initialSpace = null;
 
-        // First fetch spaces
-        const { data: spacesData, error: spacesError } = await supabase
-        .from('spaces')
-        .select('*')
-          .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
+        // Handle space selection based on URL or default to first space
+        if (spaceId && spacesData?.length) {
+          // If spaceId is provided in the URL, select that space
+          const targetSpace = spacesData.find(space => space.id === spaceId)
+          if (targetSpace) {
+            console.log('Loading space from URL parameter:', targetSpace.name)
+            initialSpace = targetSpace
+            await handleSpaceSelect(targetSpace)
+          }
+        } else if (spacesData && spacesData.length > 0) {
+          // Select the first space if no spaceId is provided
+          initialSpace = spacesData[0]
+          console.log('Loading first space:', initialSpace.name)
+          await handleSpaceSelect(initialSpace)
+        }
 
-        if (spacesError) throw spacesError
-        setSpaces(spacesData || [])
-
-        // Select the first space if available and fetch its content
-        if (spacesData && spacesData.length > 0) {
-          const firstSpace = spacesData[0]
-          setSelectedSpace(firstSpace)
+        // Space content should be loaded by handleSpaceSelect
+        // Now handle source selection if parameters exist
+        if (sourceType && sourceId) {
+          console.log('Source navigation requested:', { sourceType, sourceId })
           
-          // Fetch all content types for the first space
-          const [notesResult, websitesResult, documentsResult] = await Promise.all([
-            supabase
-              .from('notes')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('space_id', firstSpace.id)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('websites')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('space_id', firstSpace.id)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('documents')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('space_id', firstSpace.id)
-              .order('created_at', { ascending: false })
-          ])
-
-          // Handle any errors
-          if (notesResult.error) throw notesResult.error
-          if (websitesResult.error) throw websitesResult.error
-          if (documentsResult.error) throw documentsResult.error
-
-          // Process documents to include public URLs
-          const documentsWithUrls = await Promise.all(
-            (documentsResult.data || []).map(async (doc) => {
-              const { data: { publicUrl } } = supabase
-                .storage
-                .from('documents')
-                .getPublicUrl(doc.file_path)
-              return { ...doc, publicUrl }
-            })
-          )
-
-          // Update state with fetched content
-          setNotes(notesResult.data || [])
-          setWebsites(websitesResult.data || [])
-          setDocuments(documentsWithUrls)
-
-          // Handle source navigation if URL parameters are present
-          if (sourceType && sourceId) {
-            // Set the active tab based on source type
-            setActiveTab(sourceType as 'note' | 'website' | 'document')
-
-            // Find and select the source
+          // Set the active tab based on source type
+          setActiveTab(sourceType as 'note' | 'website' | 'document')
+          
+          // The space may have changed, so we need to wait for the content to load
+          setTimeout(() => {
+            console.log('Selecting source after timeout')
             if (sourceType === 'note') {
-              const note = notesResult.data?.find(n => n.id === sourceId)
+              const note = notes.find(n => n.id === sourceId)
+              console.log('Looking for note:', sourceId, note ? 'found' : 'not found', 'in notes array length:', notes.length)
               if (note) setSelectedNote(note)
             } else if (sourceType === 'document') {
-              const doc = documentsWithUrls.find(d => d.id === sourceId)
+              const doc = documents.find(d => d.id === sourceId)
+              console.log('Looking for document:', sourceId, doc ? 'found' : 'not found', 'in documents array length:', documents.length)
               if (doc) setSelectedDocument(doc)
             } else if (sourceType === 'website') {
-              const website = websitesResult.data?.find(w => w.id === sourceId)
+              const website = websites.find(w => w.id === sourceId)
+              console.log('Looking for website:', sourceId, website ? 'found' : 'not found', 'in websites array length:', websites.length)
               if (website) setSelectedWebsite(website)
             }
-          }
+          }, 500)
         }
       } catch (error) {
         console.error('Error initializing app:', error)
@@ -580,7 +561,12 @@ export default function Dashboard() {
   }
 
   const handleStartChat = () => {
-    router.push('/chat')
+    // If a space is selected, pass its ID to the chat page
+    if (selectedSpace) {
+      router.push(`/chat?spaceId=${selectedSpace.id}`)
+    } else {
+      router.push('/chat')
+    }
   }
 
   const handleNewNote = () => {
@@ -599,7 +585,7 @@ export default function Dashboard() {
         return
       }
 
-      console.log('Selecting space:', space.id)
+      console.log('Selecting space:', space.id, space.name)
       
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -608,18 +594,29 @@ export default function Dashboard() {
       }
 
       // First set the selected space
-    setSelectedSpace(space)
-      
+      setSelectedSpace(space)
+        
       // Clear current content before fetching new content
       setNotes([])
       setWebsites([])
       setDocuments([])
-      
+        
       // Reset UI states
-    setShowNewNote(false)
-    setEditingNote(null)
+      setShowNewNote(false)
+      setEditingNote(null)
       setSelectedNote(null)
       setSelectedDocument(null)
+      setSelectedWebsite(null)
+
+      // Check for source navigation parameters
+      const params = new URLSearchParams(window.location.search)
+      const sourceType = params.get('type')
+      const sourceId = params.get('id')
+      if (sourceType && sourceId) {
+        console.log('Space selection with source params:', { sourceType, sourceId, space: space.name })
+        // Set the active tab based on source type
+        setActiveTab(sourceType as 'note' | 'website' | 'document')
+      }
 
       // Fetch content for the selected space
       const [notesResult, websitesResult, documentsResult] = await Promise.all([
@@ -664,43 +661,17 @@ export default function Dashboard() {
       )
       setDocuments(documentsWithUrls)
 
+      // Log content load status
+      console.log('Space content loaded:', {
+        space: space.name,
+        notes: notesResult.data?.length || 0,
+        websites: websitesResult.data?.length || 0,
+        documents: documentsResult.data?.length || 0
+      })
+
     } catch (error) {
       console.error('Error in handleSpaceSelect:', error)
       setError('Failed to fetch content for selected space')
-    }
-  }
-
-  const handleFileUpload = async (file: File) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-
-      // Create a unique file name
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const filePath = `${user.id}/${fileName}`
-
-      // Upload the file to Supabase storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
-
-      if (uploadError) {
-        console.error('Error uploading file:', uploadError)
-        throw new Error('Failed to upload file')
-      }
-
-      if (!data?.path) {
-        throw new Error('No file path returned')
-      }
-
-      return data.path
-    } catch (error) {
-      console.error('Error in handleFileUpload:', error)
-      throw error
     }
   }
 
@@ -712,140 +683,35 @@ export default function Dashboard() {
         return
       }
 
-      if (!selectedSpace) {
-        setError('Please select a space before adding memories')
+      console.log('Saving memory:', newNote)
+
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          title: newNote.title,
+          content: newNote.content,
+          image_url: newNote.image_url,
+          user_id: user.id,
+          space_id: selectedSpace?.id
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error saving memory:', error)
+        // Provide more detailed error message
+        let errorMessage = 'Failed to save memory. Please try again.'
+        if (error instanceof Error) {
+          errorMessage = `Error: ${error.message}`
+        }
+        setError(errorMessage)
         return
       }
 
-      console.log('Saving content to space:', selectedSpace.id)
-
-      switch (activeTab) {
-        case 'website':
-          if (!websiteUrl) {
-            setError('Please enter a website URL')
-            return
-          }
-
-          // Basic URL validation
-          let url = websiteUrl
-          if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'https://' + url
-          }
-
-          const websiteData = {
-            title: url.split('//')[1].split('/')[0], // Use domain as title
-            url: url,
-            content: '', // Empty content since we removed fetch functionality
-            user_id: user.id,
-            space_id: selectedSpace.id,
-            created_at: new Date().toISOString()
-          }
-
-          console.log('Saving website to space:', selectedSpace.id)
-          const { error: websiteError } = await supabase
-            .from('websites')
-            .insert(websiteData)
-
-          if (websiteError) throw websiteError
-          await fetchWebsites(user.id)
-          break
-
-        case 'document':
-          if (!documentFile) {
-            setError('Please select a document to upload')
-            return
-          }
-
-          try {
-            console.log('Uploading document:', documentFile.name)
-            const filePath = await handleFileUpload(documentFile)
-            
-            const documentData = {
-              title: documentFile.name,
-              file_path: filePath,
-              content: '', // Empty content since we removed extract functionality
-              file_type: documentFile.type,
-              file_size: documentFile.size,
-              user_id: user.id,
-              space_id: selectedSpace.id,
-              created_at: new Date().toISOString()
-            }
-
-            console.log('Saving document to space:', selectedSpace.id)
-            const { error: documentError } = await supabase
-              .from('documents')
-              .insert(documentData)
-
-            if (documentError) throw documentError
-            await fetchDocuments(user.id)
-          } catch (error) {
-            console.error('Error handling document:', error)
-            setError('Failed to upload document. Please try again.')
-            return
-          }
-          break
-
-        case 'note':
-          if (!newNote.content.trim()) {
-            setError('Please enter some content for your note')
-            return
-          }
-
-          try {
-      const noteData = {
-              title: newNote.title || 'Untitled Note',
-        content: newNote.content,
-            user_id: user.id,
-            space_id: selectedSpace.id,
-              created_at: new Date().toISOString(),
-              image_url: newNote.image_url || null
-      }
-
-            console.log('Saving note to space:', selectedSpace.id, 'with data:', noteData)
-      if (editingNote) {
-        const { error } = await supabase
-          .from('notes')
-          .update({
-            ...noteData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingNote.id)
-          .eq('user_id', user.id)
-
-              if (error) {
-                console.error('Specific error updating note:', JSON.stringify(error))
-                throw error
-              } else {
-                await fetchNotes(user.id)
-              }
-      } else {
-        const { error } = await supabase
-          .from('notes')
-          .insert(noteData)
-
-              if (error) {
-                console.error('Specific error inserting note:', JSON.stringify(error))
-                throw error
-              } else {
-          await fetchNotes(user.id)
-              }
-            }
-          } catch (error) {
-            console.error('Detailed error in note save:', error)
-            throw error
-          }
-          break
-      }
-
-      // Reset form state
+      // Update local state
+      setNotes(prev => [...prev, data])
       setNewNote({ title: '', content: '', image_url: '' })
-      setWebsiteUrl('')
-      setDocumentFile(null)
-      setShowNewNote(false)
-      setEditingNote(null)
       setError(null)
-      setIsAIEnabled(false)
-      setIsGenerating(false)
     } catch (error) {
       console.error('Error saving memory:', error)
       // Provide more detailed error message
@@ -1368,6 +1234,84 @@ export default function Dashboard() {
     setShowSpaceMenu(false);
     setLongPressSpace(null);
   };
+
+  // After handleSpaceSelect is complete in the init function
+  // Create a useEffect that watches for changes to these states to handle source selection
+  useEffect(() => {
+    const handleSourceNavigation = async () => {
+      // Get URL parameters
+      const params = new URLSearchParams(window.location.search);
+      const sourceType = params.get('type');
+      const sourceId = params.get('id');
+      
+      if (sourceType && sourceId && selectedSpace) {
+        console.log('Trying to handle source selection after space loaded:', sourceType, sourceId);
+        
+        // Set the active tab based on source type
+        setActiveTab(sourceType as 'note' | 'website' | 'document');
+        
+        // Try to select the specific source
+        if (sourceType === 'note') {
+          const note = notes.find(n => n.id === sourceId);
+          console.log('Looking for note in current space:', note ? 'found' : 'not found');
+          if (note) setSelectedNote(note);
+        } else if (sourceType === 'document') {
+          const doc = documents.find(d => d.id === sourceId);
+          console.log('Looking for document in current space:', doc ? 'found' : 'not found');
+          if (doc) setSelectedDocument(doc);
+        } else if (sourceType === 'website') {
+          const website = websites.find(w => w.id === sourceId);
+          console.log('Looking for website in current space:', website ? 'found' : 'not found');
+          if (website) setSelectedWebsite(website);
+        }
+      }
+    };
+    
+    if (selectedSpace) {
+      handleSourceNavigation();
+    }
+  }, [selectedSpace, notes, websites, documents]);
+
+  // Add this useEffect to handle source selection after content is loaded  
+  useEffect(() => {
+    // If we have URL parameters for source navigation, try to select the source
+    const handleSourceSelectionAfterContentLoad = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const sourceType = params.get('type');
+      const sourceId = params.get('id');
+      
+      if (sourceType && sourceId && selectedSpace) {
+        console.log('Trying to select source from URL parameters after content load', 
+          { sourceType, sourceId, space: selectedSpace.name });
+        
+        // Set the active tab based on source type
+        setActiveTab(sourceType as 'note' | 'website' | 'document');
+        
+        // Use setTimeout to ensure state updates have completed
+        setTimeout(() => {
+          // Try to find and select the source in the loaded content
+          if (sourceType === 'note' && notes.length > 0) {
+            const note = notes.find(n => n.id === sourceId);
+            console.log('Looking for note:', sourceId, note ? 'found' : 'not found', 'in space:', selectedSpace.name);
+            if (note) setSelectedNote(note);
+          } else if (sourceType === 'document' && documents.length > 0) {
+            const doc = documents.find(d => d.id === sourceId);
+            console.log('Looking for document:', sourceId, doc ? 'found' : 'not found', 'in space:', selectedSpace.name);
+            if (doc) setSelectedDocument(doc);
+          } else if (sourceType === 'website' && websites.length > 0) {
+            const website = websites.find(w => w.id === sourceId);
+            console.log('Looking for website:', sourceId, website ? 'found' : 'not found', 'in space:', selectedSpace.name);
+            if (website) setSelectedWebsite(website);
+          }
+        }, 500); // Give a 500ms delay to ensure state is fully updated
+      }
+    };
+    
+    // Only run if we have content loaded
+    if (selectedSpace && (notes.length > 0 || websites.length > 0 || documents.length > 0)) {
+      handleSourceSelectionAfterContentLoad();
+    }
+  }, [selectedSpace, notes, websites, documents]);
 
   if (!mounted || loading) {
     return (

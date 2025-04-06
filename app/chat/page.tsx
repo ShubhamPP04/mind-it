@@ -6,12 +6,13 @@ import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { Send, Bot, User, X, ChevronLeft, ExternalLink, History, PlusCircle, MessagesSquare } from 'lucide-react'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { generateNoteContent } from '@/utils/gemini'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { createClient } from '@/utils/supabase/client'
+import { Navbar } from "@/app/components/ui/navbar"
 
 interface Message {
   role: 'user' | 'assistant'
@@ -23,6 +24,7 @@ interface Message {
     title: string
     url?: string
     content: string
+    space_id: string | null
   }>
 }
 
@@ -79,6 +81,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentSpaceId = searchParams.get('spaceId')
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === 'dark' : false
   const [selectedModel, setSelectedModel] = useState<Model>({
@@ -314,7 +318,8 @@ export default function ChatPage() {
           type: 'note',
           id: note.id,
           title: note.title,
-          content: note.content
+          content: note.content,
+          space_id: note.space_id
         })
       }
     })
@@ -327,7 +332,8 @@ export default function ChatPage() {
           id: website.id,
           title: website.title,
           url: website.url,
-          content: website.content
+          content: website.content,
+          space_id: website.space_id
         })
       }
     })
@@ -340,7 +346,8 @@ export default function ChatPage() {
           id: document.id,
           title: document.title,
           url: document.document_url,
-          content: document.content
+          content: document.content,
+          space_id: document.space_id
         })
       }
     })
@@ -503,6 +510,25 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen">
+      {/* Navbar for consistent navigation */}
+      <div className="fixed top-0 left-0 right-0 z-50">
+        <Navbar
+          isDark={isDark}
+          onStartChat={() => {
+            // Navigate back to dashboard with the current space context
+            if (currentSpaceId) {
+              router.push(`/dashboard?spaceId=${currentSpaceId}`)
+            } else {
+              router.push('/dashboard')
+            }
+          }}
+          onSignOut={async () => {
+            await supabase.auth.signOut()
+            router.push('/signin')
+          }}
+        />
+      </div>
+
       {/* Header */}
       <div className={cn(
         "fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-md",
@@ -513,7 +539,7 @@ export default function ChatPage() {
         <div className="mx-auto max-w-4xl flex h-14 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2 sm:gap-4">
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push(currentSpaceId ? `/dashboard?spaceId=${currentSpaceId}` : '/dashboard')}
               className={cn(
                 "p-2 rounded-lg transition-colors",
                 isDark 
@@ -776,7 +802,21 @@ export default function ChatPage() {
                                 if (source.type === 'website' && source.url) {
                                   window.open(source.url, '_blank');
                                 } else {
-                                  router.push(`/dashboard?type=${source.type}&id=${source.id}`);
+                                  // Always include source space ID for proper navigation
+                                  const spaceId = source.space_id;
+                                  
+                                  console.log('Navigating to source with context:', {
+                                    type: source.type,
+                                    id: source.id,
+                                    title: source.title,
+                                    space_id: spaceId
+                                  });
+                                  
+                                  // Build the URL for navigation
+                                  const url = `/dashboard?type=${source.type}&id=${source.id}${spaceId ? `&spaceId=${spaceId}` : ''}`;
+                                  
+                                  console.log('Navigating to URL:', url);
+                                  router.push(url);
                                 }
                               }}
                               className={cn(
