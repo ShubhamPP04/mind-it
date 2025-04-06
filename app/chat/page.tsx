@@ -129,20 +129,20 @@ export default function ChatPage() {
   useEffect(() => {
     const loadConversation = async () => {
       if (!currentConversationId) return
-      
+
       try {
         console.log('Loading conversation:', currentConversationId)
-        
+
         const { data, error } = await supabase
           .from('chat_messages')
           .select('*')
           .eq('conversation_id', currentConversationId)
           .order('created_at', { ascending: true })
-        
+
         if (error) throw error
-        
+
         console.log('Loaded messages:', data)
-        
+
         if (data && data.length > 0) {
           // Map the database messages to the UI message format
           const uiMessages = data.map(msg => ({
@@ -159,7 +159,7 @@ export default function ChatPage() {
         console.error('Error loading conversation:', error)
       }
     }
-    
+
     loadConversation()
   }, [currentConversationId, supabase])
 
@@ -193,14 +193,14 @@ export default function ChatPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
-      
+
       // Create a title based on the first user message
-      const title = firstMessage.length > 30 
-        ? firstMessage.substring(0, 30) + '...' 
+      const title = firstMessage.length > 30
+        ? firstMessage.substring(0, 30) + '...'
         : firstMessage
-      
+
       const now = new Date().toISOString()
-      
+
       // Insert conversation
       const { data, error } = await supabase
         .from('chat_conversations')
@@ -211,12 +211,12 @@ export default function ChatPage() {
         })
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       setCurrentConversationId(data.id)
       setConversations(prev => [data, ...prev])
-      
+
       return data.id
     } catch (error) {
       console.error('Error creating conversation:', error)
@@ -236,9 +236,9 @@ export default function ChatPage() {
         })
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       // Update message with ID from database
       return { ...message, id: data.id }
     } catch (error) {
@@ -267,9 +267,9 @@ export default function ChatPage() {
         .from('chat_messages')
         .delete()
         .eq('id', messageId)
-      
+
       if (error) throw error
-      
+
       // Remove from UI
       setMessages(prev => prev.filter(msg => msg.id !== messageId))
     } catch (error) {
@@ -284,16 +284,16 @@ export default function ChatPage() {
         .from('chat_messages')
         .delete()
         .eq('conversation_id', conversationId)
-      
+
       // Then delete the conversation
       await supabase
         .from('chat_conversations')
         .delete()
         .eq('id', conversationId)
-      
+
       // Update state
       setConversations(prev => prev.filter(convo => convo.id !== conversationId))
-      
+
       // If the deleted conversation was the current one, clear the messages
       if (currentConversationId === conversationId) {
         setCurrentConversationId(null)
@@ -361,10 +361,10 @@ export default function ChatPage() {
 
     const userMessage = input.trim()
     setInput('')
-    
+
     // Find relevant content before generating response
     const relevantSources = findRelevantContent(userMessage)
-    
+
     // Create a new conversation if needed
     let conversationId = currentConversationId
     if (!conversationId) {
@@ -377,44 +377,44 @@ export default function ChatPage() {
       // Update timestamp on existing conversation
       updateConversationTimestamp(conversationId)
     }
-    
+
     // Add user message to state first for immediate feedback
     const userMsg: Message = { role: 'user', content: userMessage }
     setMessages(prev => [...prev, userMsg])
-    
+
     // Save user message to database
     const savedUserMsg = await saveMessage(userMsg, conversationId)
-    
+
     setIsGenerating(true)
 
     try {
       // Include relevant content in the prompt
       const contextPrompt = relevantSources.length > 0
-        ? `Based on the following saved content:\n\n${relevantSources.map(source => 
+        ? `Based on the following saved content:\n\n${relevantSources.map(source =>
             `[${source.type.toUpperCase()}] ${source.title}\n${source.content}\n`
           ).join('\n')}\n\nUser question: ${userMessage}`
         : userMessage
 
       if (selectedModel.provider === 'gemini') {
         const response = await generateNoteContent(contextPrompt)
-        const assistantMsg: Message = { 
-          role: 'assistant', 
+        const assistantMsg: Message = {
+          role: 'assistant',
           content: response,
           sources: relevantSources
         }
-        
+
         // Add to state and save to database
         setMessages(prev => [...prev, assistantMsg])
         await saveMessage(assistantMsg, conversationId)
       } else {
         const response = await generateOpenRouterContent(selectedModel.name, contextPrompt)
         if (typeof response === 'string') {
-          const assistantMsg: Message = { 
-            role: 'assistant', 
+          const assistantMsg: Message = {
+            role: 'assistant',
             content: response,
             sources: relevantSources
           }
-          
+
           setMessages(prev => [...prev, assistantMsg])
           await saveMessage(assistantMsg, conversationId)
         } else {
@@ -454,8 +454,8 @@ export default function ChatPage() {
                           newMessages[newMessages.length - 1].content = accumulatedContent
                           newMessages[newMessages.length - 1].sources = relevantSources
                         } else {
-                          newMessages.push({ 
-                            role: 'assistant', 
+                          newMessages.push({
+                            role: 'assistant',
                             content: accumulatedContent,
                             sources: relevantSources
                           })
@@ -469,15 +469,15 @@ export default function ChatPage() {
                 }
               }
             }
-            
+
             // After streaming is complete, save the final message to the database
-            const finalAssistantMsg: Message = { 
-              role: 'assistant', 
+            const finalAssistantMsg: Message = {
+              role: 'assistant',
               content: accumulatedContent,
               sources: relevantSources
             }
             await saveMessage(finalAssistantMsg, conversationId)
-            
+
           } catch (error) {
             console.error('Error reading stream:', error)
           } finally {
@@ -487,11 +487,11 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error('Error generating response:', error)
-      const errorMsg: Message = { 
-        role: 'assistant', 
-        content: 'I apologize, but I encountered an error generating a response. Please try again.' 
+      const errorMsg: Message = {
+        role: 'assistant',
+        content: 'I apologize, but I encountered an error generating a response. Please try again.'
       }
-      
+
       setMessages(prev => [...prev, errorMsg])
       if (conversationId) {
         await saveMessage(errorMsg, conversationId)
@@ -532,8 +532,8 @@ export default function ChatPage() {
       {/* Header */}
       <div className={cn(
         "fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-md",
-        isDark 
-          ? "bg-zinc-900/75 border-zinc-800/50" 
+        isDark
+          ? "bg-zinc-900/75 border-zinc-800/50"
           : "bg-white/75 border-zinc-200/50"
       )}>
         <div className="mx-auto max-w-4xl flex h-14 items-center justify-between px-4 sm:px-6">
@@ -542,8 +542,8 @@ export default function ChatPage() {
               onClick={() => router.push(currentSpaceId ? `/dashboard?spaceId=${currentSpaceId}` : '/dashboard')}
               className={cn(
                 "p-2 rounded-lg transition-colors",
-                isDark 
-                  ? "hover:bg-zinc-800 text-zinc-400" 
+                isDark
+                  ? "hover:bg-zinc-800 text-zinc-400"
                   : "hover:bg-zinc-100 text-zinc-600"
               )}
             >
@@ -560,16 +560,16 @@ export default function ChatPage() {
               className={cn(
                 "flex items-center justify-center p-1.5 sm:p-2 rounded-md transition-all duration-300",
                 "border relative overflow-hidden group",
-                isDark 
-                  ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400" 
+                isDark
+                  ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400"
                   : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
               )}
               aria-label="Chat history"
             >
               <div className={cn(
                 "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
-                isDark 
-                  ? "bg-zinc-800/30" 
+                isDark
+                  ? "bg-zinc-800/30"
                   : "bg-zinc-100/80",
                 "origin-left"
               )} />
@@ -586,16 +586,16 @@ export default function ChatPage() {
               className={cn(
                 "flex items-center justify-center p-1.5 sm:p-2 rounded-md transition-all duration-300",
                 "border relative overflow-hidden group",
-                isDark 
-                  ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400" 
+                isDark
+                  ? "bg-transparent border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400"
                   : "bg-transparent border-zinc-400 text-zinc-600 hover:text-black hover:border-zinc-600"
               )}
               aria-label="New chat"
             >
               <div className={cn(
                 "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
-                isDark 
-                  ? "bg-zinc-800/30" 
+                isDark
+                  ? "bg-zinc-800/30"
                   : "bg-zinc-100/80",
                 "origin-left"
               )} />
@@ -644,7 +644,7 @@ export default function ChatPage() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               {conversations.length === 0 ? (
                 <div className={cn(
                   "text-sm p-3 rounded-lg",
@@ -665,7 +665,7 @@ export default function ChatPage() {
                         isDark ? "text-white/90" : "text-black/90"
                       )}
                     >
-                      <div 
+                      <div
                         className="flex-1 truncate pr-2"
                         onClick={() => {
                           setCurrentConversationId(conversation.id)
@@ -715,26 +715,26 @@ export default function ChatPage() {
                 >
                   {message.role === 'assistant' && (
                     <div className={cn(
-                      "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg shrink-0",
-                      isDark ? "bg-white/5" : "bg-black/5"
+                      "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0",
+                      isDark ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30" : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20"
                     )}>
                       <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                   )}
-                  <motion.div 
-                    initial={{ scale: 0.95 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.2 }}
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.3, type: "spring", stiffness: 100 }}
                     className={cn(
-                      "relative flex-1 max-w-[calc(100%-64px)] sm:max-w-2xl rounded-2xl px-3 py-2 sm:px-4 sm:py-3 break-words group",
+                      "relative flex-1 max-w-[calc(100%-64px)] sm:max-w-2xl rounded-2xl px-3 py-2 sm:px-4 sm:py-3 break-words group shadow-sm",
                       message.role === 'assistant' ? (
-                        isDark 
-                          ? "bg-white/5 text-white/90" 
-                          : "bg-black/5 text-black/90"
+                        isDark
+                          ? "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 text-white/90 border border-white/5"
+                          : "bg-gradient-to-br from-zinc-50/90 to-zinc-100/90 text-black/90 border border-black/5"
                       ) : (
-                        isDark 
-                          ? "bg-white/10 text-white" 
-                          : "bg-black/10 text-black"
+                        isDark
+                          ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-white border border-white/10"
+                          : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 text-black border border-black/10"
                       )
                     )}
                   >
@@ -750,12 +750,12 @@ export default function ChatPage() {
                         <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                     )}
-                    
+
                     <div className={cn(
                       "prose prose-sm sm:prose-base max-w-none",
                       isDark ? "prose-invert" : "prose-neutral"
                     )}>
-                      <ReactMarkdown 
+                      <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
                           a: ({ node, ...props }) => (
@@ -765,78 +765,132 @@ export default function ChatPage() {
                               rel="noopener noreferrer"
                               className={cn(
                                 "underline transition-colors break-words",
-                                isDark 
-                                  ? "text-blue-400 hover:text-blue-300" 
+                                isDark
+                                  ? "text-blue-400 hover:text-blue-300"
                                   : "text-blue-600 hover:text-blue-800"
                               )}
                             />
-                          )
+                          ),
+                          code: ({ className, children, ...props }) => {
+                            const match = /language-(\w+)/.exec(className || '')
+                            const isInline = !className || !match
+
+                            if (isInline) {
+                              return (
+                                <code
+                                  className={cn(
+                                    "rounded px-1 py-0.5 font-mono text-sm",
+                                    isDark
+                                      ? "bg-white/10 text-white/90"
+                                      : "bg-black/10 text-black/90"
+                                  )}
+                                  {...props}
+                                >
+                                  {children}
+                                </code>
+                              )
+                            }
+
+                            return (
+                              <code
+                                className={cn(
+                                  className,
+                                  "block rounded-md p-3 text-sm font-mono overflow-x-auto",
+                                  isDark
+                                    ? "bg-white/10 text-white/90"
+                                    : "bg-black/10 text-black/90"
+                                )}
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            )
+                          }
                         }}
                       >
                         {message.content}
                       </ReactMarkdown>
                     </div>
-                    
+
                     {/* Sources */}
                     {message.sources && message.sources.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.3 }}
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.3 }}
                         className={cn(
                           "mt-3 pt-3 sm:mt-4 sm:pt-4 border-t",
                           isDark ? "border-white/10" : "border-black/10"
                         )}
                       >
                         <div className={cn(
-                          "text-xs font-medium mb-2",
+                          "text-xs font-medium mb-2 flex items-center gap-1.5",
                           isDark ? "text-white/60" : "text-black/60"
                         )}>
-                          Sources:
+                          <div className={cn(
+                            "w-4 h-4 rounded-full flex items-center justify-center",
+                            isDark ? "bg-blue-500/20" : "bg-blue-500/10"
+                          )}>
+                            <span className="text-[10px]">{message.sources.length}</span>
+                          </div>
+                          <span>Sources used to generate this response:</span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                          {message.sources.map((source) => (
-                            <button
+                        <div className="flex flex-wrap gap-2 sm:gap-2.5">
+                          {message.sources.map((source, idx) => (
+                            <motion.button
                               key={source.id}
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: 0.3 + (idx * 0.1), duration: 0.2 }}
                               onClick={() => {
                                 if (source.type === 'website' && source.url) {
                                   window.open(source.url, '_blank');
                                 } else {
                                   // Always include source space ID for proper navigation
                                   const spaceId = source.space_id;
-                                  
-                                  console.log('Navigating to source with context:', {
-                                    type: source.type,
-                                    id: source.id,
-                                    title: source.title,
-                                    space_id: spaceId
-                                  });
-                                  
+
                                   // Build the URL for navigation
                                   const url = `/dashboard?type=${source.type}&id=${source.id}${spaceId ? `&spaceId=${spaceId}` : ''}`;
-                                  
-                                  console.log('Navigating to URL:', url);
                                   router.push(url);
                                 }
                               }}
                               className={cn(
-                                "flex items-center gap-1 sm:gap-1.5 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md text-xs transition-colors",
-                                "border",
-                                isDark 
-                                  ? "bg-white/5 hover:bg-white/10 border-white/10" 
-                                  : "bg-black/5 hover:bg-black/10 border-black/10"
+                                "flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-md text-xs transition-all",
+                                "border shadow-sm hover:shadow-md hover:-translate-y-0.5",
+                                source.type === 'note' ? (
+                                  isDark
+                                    ? "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-300"
+                                    : "bg-purple-500/5 hover:bg-purple-500/10 border-purple-500/20 text-purple-700"
+                                ) : source.type === 'website' ? (
+                                  isDark
+                                    ? "bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-300"
+                                    : "bg-blue-500/5 hover:bg-blue-500/10 border-blue-500/20 text-blue-700"
+                                ) : (
+                                  isDark
+                                    ? "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300"
+                                    : "bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20 text-amber-700"
+                                )
                               )}
                             >
-                              <span>
+                              <div className={cn(
+                                "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
+                                source.type === 'note' ? (
+                                  isDark ? "bg-purple-500/20" : "bg-purple-500/10"
+                                ) : source.type === 'website' ? (
+                                  isDark ? "bg-blue-500/20" : "bg-blue-500/10"
+                                ) : (
+                                  isDark ? "bg-amber-500/20" : "bg-amber-500/10"
+                                )
+                              )}>
                                 {source.type === 'note' && '📝'}
                                 {source.type === 'website' && '🌐'}
                                 {source.type === 'document' && '📄'}
-                              </span>
-                              <span className="font-medium">{source.title}</span>
+                              </div>
+                              <span className="font-medium truncate max-w-[150px]">{source.title}</span>
                               {source.url && (
-                                <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-50" />
+                                <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5 opacity-70" />
                               )}
-                            </button>
+                            </motion.button>
                           ))}
                         </div>
                       </motion.div>
@@ -844,8 +898,8 @@ export default function ChatPage() {
                   </motion.div>
                   {message.role === 'user' && (
                     <div className={cn(
-                      "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg shrink-0",
-                      isDark ? "bg-white/5" : "bg-black/5"
+                      "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0",
+                      isDark ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30" : "bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20"
                     )}>
                       <User className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
@@ -854,13 +908,33 @@ export default function ChatPage() {
               ))}
             </AnimatePresence>
             {isGenerating && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2 text-sm"
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex gap-2 sm:gap-4 text-sm leading-relaxed items-start"
               >
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current" />
-                <span>Generating response...</span>
+                <div className={cn(
+                  "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0",
+                  isDark ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30" : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20"
+                )}>
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className={cn(
+                  "relative flex-1 max-w-[calc(100%-64px)] sm:max-w-2xl rounded-2xl px-4 py-3 shadow-sm",
+                  isDark
+                    ? "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 text-white/90 border border-white/5"
+                    : "bg-gradient-to-br from-zinc-50/90 to-zinc-100/90 text-black/90 border border-black/5"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex space-x-1.5">
+                      <div className={`w-2 h-2 rounded-full ${isDark ? 'bg-white/40' : 'bg-black/40'} animate-pulse`} style={{ animationDelay: '0ms' }}></div>
+                      <div className={`w-2 h-2 rounded-full ${isDark ? 'bg-white/40' : 'bg-black/40'} animate-pulse`} style={{ animationDelay: '300ms' }}></div>
+                      <div className={`w-2 h-2 rounded-full ${isDark ? 'bg-white/40' : 'bg-black/40'} animate-pulse`} style={{ animationDelay: '600ms' }}></div>
+                    </div>
+                    <span className="text-sm opacity-70">Generating response...</span>
+                  </div>
+                </div>
               </motion.div>
             )}
             <div ref={messagesEndRef} />
@@ -871,50 +945,111 @@ export default function ChatPage() {
       {/* Input */}
       <div className={cn(
         "fixed bottom-0 left-0 right-0 border-t backdrop-blur-md",
-        isDark 
-          ? "bg-zinc-900/75 border-zinc-800/50" 
-          : "bg-white/75 border-zinc-200/50"
+        isDark
+          ? "bg-zinc-900/80 border-zinc-800/50"
+          : "bg-white/80 border-zinc-200/50"
       )}>
-        <form 
+        <form
           onSubmit={handleSubmit}
           className="max-w-4xl mx-auto p-3 sm:p-4"
         >
           <div className="relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Send a message..."
-              rows={1}
-              className={cn(
-                "w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 rounded-xl border bg-transparent outline-none resize-none",
-                "text-sm sm:text-base",
-                "placeholder:text-muted-foreground",
-                isDark 
-                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
-                  : "border-black/10 focus:border-black/20 placeholder:text-black/30"
-              )}
-              style={{
-                minHeight: '48px',
-                maxHeight: '120px'
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isGenerating}
-              className={cn(
-                "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-lg transition-colors",
-                isDark 
-                  ? "hover:bg-white/10 text-white disabled:text-white/30" 
-                  : "hover:bg-black/10 text-black disabled:text-black/30"
-              )}
-            >
-              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            <div className={cn(
+              "flex items-center gap-2 mb-2",
+              "opacity-0 h-0 overflow-hidden transition-all duration-300",
+              input.length > 0 && "opacity-100 h-8"
+            )}>
+              <button
+                type="button"
+                onClick={() => setInput('')}
+                className={cn(
+                  "text-xs px-2 py-1 rounded-md transition-colors",
+                  isDark
+                    ? "bg-white/5 hover:bg-white/10 text-white/70"
+                    : "bg-black/5 hover:bg-black/10 text-black/70"
+                )}
+              >
+                Clear
+              </button>
+            </div>
+            <div className={cn(
+              "relative rounded-xl border shadow-sm overflow-hidden",
+              isDark
+                ? "bg-zinc-800/50 border-white/10"
+                : "bg-white/50 border-black/10",
+              isGenerating && "opacity-50 pointer-events-none"
+            )}>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Send a message..."
+                rows={1}
+                disabled={isGenerating}
+                className={cn(
+                  "w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 bg-transparent outline-none resize-none",
+                  "text-sm sm:text-base",
+                  "placeholder:text-muted-foreground",
+                  isDark
+                    ? "placeholder:text-white/30"
+                    : "placeholder:text-black/30"
+                )}
+                style={{
+                  minHeight: '48px',
+                  maxHeight: '120px'
+                }}
+              />
+              <div className="absolute right-1 bottom-1 flex items-center">
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isGenerating}
+                  className={cn(
+                    "p-1.5 sm:p-2 rounded-lg transition-colors",
+                    isDark
+                      ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-white disabled:opacity-30"
+                      : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 text-black disabled:opacity-30"
+                  )}
+                >
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-between items-center mt-2 text-xs">
+              <div className={cn(
+                "text-xs",
+                isDark ? "text-white/50" : "text-black/50"
+              )}>
+                {isGenerating ? "Generating..." : "AI powered by Gemini & OpenRouter"}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Add example prompt
+                    const examples = [
+                      "Summarize my notes about machine learning",
+                      "What are the key points from my saved websites?",
+                      "Help me organize my thoughts on this topic",
+                      "Compare the information in my saved documents"
+                    ];
+                    setInput(examples[Math.floor(Math.random() * examples.length)]);
+                    inputRef.current?.focus();
+                  }}
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-md transition-colors",
+                    isDark
+                      ? "bg-white/5 hover:bg-white/10 text-white/70"
+                      : "bg-black/5 hover:bg-black/10 text-black/70"
+                  )}
+                >
+                  Example
+                </button>
+              </div>
+            </div>
           </div>
         </form>
       </div>
     </div>
   )
-} 
+}

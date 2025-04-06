@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Sparkles, Zap, Brain, Star } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 
 export type Model = {
@@ -73,11 +73,21 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
         className={cn(
           "flex items-center justify-between gap-2 h-10 px-4 rounded-lg text-sm transition-all duration-200 min-w-[200px]",
           isDark
-            ? "bg-white/5 border border-white/10 hover:bg-white/10 text-white"
-            : "bg-black/5 border border-black/10 hover:bg-black/10 text-black",
+            ? "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 border border-white/10 hover:border-white/20 text-white shadow-sm"
+            : "bg-gradient-to-br from-zinc-50/90 to-zinc-100/90 border border-black/10 hover:border-black/20 text-black shadow-sm",
         )}
       >
-        <span className="truncate">{selectedModel.displayName}</span>
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "flex items-center justify-center w-5 h-5 rounded-full",
+            selectedModel.provider === 'gemini'
+              ? (isDark ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30" : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20")
+              : (isDark ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30" : "bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20")
+          )}>
+            {selectedModel.provider === 'gemini' ? <Sparkles className="w-3 h-3" /> : <Brain className="w-3 h-3" />}
+          </div>
+          <span className="truncate font-medium">{selectedModel.displayName}</span>
+        </div>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2, type: "spring", stiffness: 200 }}
@@ -100,7 +110,7 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                 : "bg-white/90 border border-black/10"
             )}
           >
-            <motion.div 
+            <motion.div
               className="py-1"
               initial="closed"
               animate="open"
@@ -118,11 +128,12 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
-                  "px-3 py-2 text-xs font-medium border-b",
-                  isDark ? "text-white/50 border-white/10" : "text-black/50 border-black/10"
+                  "px-3 py-2 text-xs font-medium border-b flex items-center gap-1.5",
+                  isDark ? "text-white/70 border-white/10" : "text-black/70 border-black/10"
                 )}
               >
-                Gemini
+                <Sparkles className="w-3 h-3" />
+                <span>Gemini Models</span>
               </motion.div>
               {models
                 .filter(model => model.provider === 'gemini')
@@ -149,12 +160,21 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                       )
                     )}
                   >
-                    <div className="font-medium">{model.displayName}</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="font-medium">{model.displayName}</div>
+                      {model.name.includes('gemini-2.0') && (
+                        <span className={cn(
+                          "px-1.5 py-0.5 text-[10px] rounded-full",
+                          isDark ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-purple-500/10 text-purple-600 border border-purple-500/20"
+                        )}>Latest</span>
+                      )}
+                    </div>
                     {model.description && (
                       <div className={cn(
-                        "text-xs mt-0.5",
+                        "text-xs mt-0.5 flex items-center gap-1",
                         isDark ? "text-white/60" : "text-black/60"
                       )}>
+                        <Zap className="w-3 h-3 flex-shrink-0" />
                         {model.description}
                       </div>
                     )}
@@ -166,11 +186,16 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
-                  "px-3 py-2 text-xs font-medium border-b mt-1",
-                  isDark ? "text-white/50 border-white/10" : "text-black/50 border-black/10"
+                  "px-3 py-2 text-xs font-medium border-b mt-1 flex items-center gap-1.5",
+                  isDark ? "text-white/70 border-white/10" : "text-black/70 border-black/10"
                 )}
               >
-                OpenRouter (Free)
+                <Brain className="w-3 h-3" />
+                <span>OpenRouter Models</span>
+                <span className={cn(
+                  "ml-1 px-1.5 py-0.5 text-[10px] rounded-full",
+                  isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"
+                )}>Free</span>
               </motion.div>
               {models
                 .filter(model => model.provider === 'openrouter')
@@ -197,12 +222,21 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                       )
                     )}
                   >
-                    <div className="font-medium">{model.displayName}</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="font-medium">{model.displayName}</div>
+                      {model.name.includes('quasar') && (
+                        <span className={cn(
+                          "px-1.5 py-0.5 text-[10px] rounded-full",
+                          isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                        )}>Experimental</span>
+                      )}
+                    </div>
                     {model.description && (
                       <div className={cn(
-                        "text-xs mt-0.5",
+                        "text-xs mt-0.5 flex items-center gap-1",
                         isDark ? "text-white/60" : "text-black/60"
                       )}>
+                        <Star className="w-3 h-3 flex-shrink-0" />
                         {model.description}
                       </div>
                     )}
@@ -214,4 +248,4 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
       </AnimatePresence>
     </div>
   );
-} 
+}

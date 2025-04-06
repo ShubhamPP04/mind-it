@@ -683,43 +683,212 @@ export default function Dashboard() {
         return
       }
 
-      console.log('Saving memory:', newNote)
-
-      const { data, error } = await supabase
-        .from('notes')
-        .insert({
-          title: newNote.title,
-          content: newNote.content,
-          image_url: newNote.image_url,
-          user_id: user.id,
-          space_id: selectedSpace?.id
-        })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Error saving memory:', error)
-        // Provide more detailed error message
-        let errorMessage = 'Failed to save memory. Please try again.'
-        if (error instanceof Error) {
-          errorMessage = `Error: ${error.message}`
-        }
-        setError(errorMessage)
+      if (!selectedSpace) {
+        setError('Please select a space before adding memories')
         return
       }
 
-      // Update local state
-      setNotes(prev => [...prev, data])
-      setNewNote({ title: '', content: '', image_url: '' })
+      console.log(`Saving ${activeTab} memory to space:`, selectedSpace.id)
+
+      // Handle different types of content based on active tab
+      switch (activeTab) {
+        case 'website':
+          if (!websiteUrl) {
+            setError('Please enter a website URL')
+            return
+          }
+
+          // Basic URL validation
+          let url = websiteUrl
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url
+          }
+
+          const websiteData = {
+            title: url.split('//')[1].split('/')[0], // Use domain as title
+            url: url,
+            content: '', // Empty content since we removed fetch functionality
+            user_id: user.id,
+            space_id: selectedSpace.id,
+            created_at: new Date().toISOString()
+          }
+
+          console.log('Saving website:', websiteData)
+          const { data: websiteResult, error: websiteError } = await supabase
+            .from('websites')
+            .insert(websiteData)
+            .select()
+            .single()
+
+          if (websiteError) {
+            console.error('Error saving website:', websiteError)
+            setError('Failed to save website. Please try again.')
+            return
+          }
+
+          // Update UI with new website
+          setWebsites(prev => [websiteResult, ...prev])
+          setWebsiteUrl('') // Reset form
+          setShowNewNote(false) // Close form
+          setSelectedWebsite(websiteResult) // Select the new website
+          setActiveTab('website') // Ensure we're on the websites tab
+          console.log('Website saved successfully:', websiteResult)
+          break
+
+        case 'document':
+          if (!documentFile) {
+            setError('Please select a document to upload')
+            return
+          }
+
+          try {
+            console.log('Uploading document:', documentFile.name)
+            // Create a unique file name
+            const fileExt = documentFile.name.split('.').pop()
+            const fileName = `${Math.random()}.${fileExt}`
+            const filePath = `${user.id}/${fileName}`
+
+            // Upload the file to Supabase storage
+            const { error: uploadError, data: uploadData } = await supabase.storage
+              .from('documents')
+              .upload(filePath, documentFile, {
+                cacheControl: '3600',
+                upsert: false
+              })
+
+            if (uploadError) {
+              console.error('Error uploading file:', uploadError)
+              setError('Failed to upload file. Please try again.')
+              return
+            }
+
+            if (!uploadData?.path) {
+              setError('No file path returned')
+              return
+            }
+
+            const documentData = {
+              title: documentFile.name,
+              file_path: filePath,
+              content: '', // Empty content since we removed extract functionality
+              file_type: documentFile.type,
+              file_size: documentFile.size,
+              user_id: user.id,
+              space_id: selectedSpace.id,
+              created_at: new Date().toISOString()
+            }
+
+            console.log('Saving document:', documentData)
+            const { data: documentResult, error: documentError } = await supabase
+              .from('documents')
+              .insert(documentData)
+              .select()
+              .single()
+
+            if (documentError) {
+              console.error('Error saving document:', documentError)
+              setError('Failed to save document. Please try again.')
+              return
+            }
+
+            // Get the public URL
+            const { data: { publicUrl } } = supabase
+              .storage
+              .from('documents')
+              .getPublicUrl(filePath)
+
+            // Create document with public URL
+            const newDocument = { ...documentResult, publicUrl }
+
+            // Update UI with new document
+            setDocuments(prev => [newDocument, ...prev])
+            setDocumentFile(null) // Reset form
+            setShowNewNote(false) // Close form
+            setSelectedDocument(newDocument) // Select the new document
+            setActiveTab('document') // Ensure we're on the documents tab
+            console.log('Document saved successfully:', newDocument)
+          } catch (error) {
+            console.error('Error handling document:', error)
+            setError('Failed to upload document. Please try again.')
+          }
+          break
+
+        case 'note':
+        default:
+          if (!newNote.content.trim()) {
+            setError('Please enter some content for your note')
+            return
+          }
+
+          const noteData = {
+            title: newNote.title || 'Untitled Note',
+            content: newNote.content,
+            image_url: newNote.image_url,
+            user_id: user.id,
+            space_id: selectedSpace.id
+          }
+
+          console.log('Saving note:', noteData)
+
+          if (editingNote) {
+            // Update existing note
+            const { data: updatedNote, error } = await supabase
+              .from('notes')
+              .update({
+                ...noteData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', editingNote.id)
+              .eq('user_id', user.id)
+              .select()
+              .single()
+
+            if (error) {
+              console.error('Error updating note:', error)
+              setError('Failed to update note. Please try again.')
+              return
+            }
+
+            // Update notes array with the updated note
+            setNotes(prev => prev.map(note => 
+              note.id === editingNote.id ? updatedNote : note
+            ))
+            setSelectedNote(updatedNote)
+            console.log('Note updated successfully:', updatedNote)
+          } else {
+            // Create new note
+            const { data, error } = await supabase
+              .from('notes')
+              .insert(noteData)
+              .select()
+              .single()
+
+            if (error) {
+              console.error('Error saving note:', error)
+              setError('Failed to save note. Please try again.')
+              return
+            }
+
+            // Update local state with the new note
+            setNotes(prev => [data, ...prev])
+            setSelectedNote(data)
+            console.log('Note created successfully:', data)
+          }
+
+          // Reset UI
+          setNewNote({ title: '', content: '', image_url: '' })
+          setActiveTab('note')
+          break
+      }
+
+      // Common cleanup
+      setShowNewNote(false)
+      setEditingNote(null)
+      setIsAIEnabled(false)
       setError(null)
     } catch (error) {
-      console.error('Error saving memory:', error)
-      // Provide more detailed error message
-      let errorMessage = 'Failed to save memory. Please try again.'
-      if (error instanceof Error) {
-        errorMessage = `Error: ${error.message}`
-      }
-      setError(errorMessage)
+      console.error('Error in handleSaveNote:', error)
+      setError('An unexpected error occurred. Please try again.')
     }
   }
 
