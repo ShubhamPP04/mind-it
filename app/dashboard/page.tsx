@@ -24,6 +24,7 @@ import { Globe } from "lucide-react"
 import Image from 'next/image'
 import { SimpleFormattingToolbar } from "@/components/ui/simple-formatting-toolbar"
 import { AIGenerationAnimation } from "@/components/ui/ai-generation-animation"
+import { Slider } from "@/components/ui/slider"
 
 interface Space {
   id: string
@@ -87,6 +88,7 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isImageUploading, setIsImageUploading] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
+  const [imageOpacity, setImageOpacity] = useState<number>(0.4)
   const [selectedModel, setSelectedModel] = useState<Model>({
     provider: 'gemini',
     name: 'gemini-2.0-flash',
@@ -2253,8 +2255,11 @@ export default function Dashboard() {
                 >
                   {note.image_url && (
                     <div
-                      className="absolute inset-0 bg-cover bg-center opacity-40"
-                      style={{ backgroundImage: `url(${note.image_url})` }}
+                      className="absolute inset-0 bg-cover bg-center"
+                      style={{
+                        backgroundImage: `url(${note.image_url})`,
+                        opacity: imageOpacity
+                      }}
                     />
                   )}
 
@@ -2633,7 +2638,10 @@ export default function Dashboard() {
                 >
                   <div
                     className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
-                    onClick={() => setSelectedNote(null)}
+                    onClick={() => {
+                      setSelectedNote(null);
+                      setImageOpacity(0.4); // Reset opacity when closing
+                    }}
                   />
                   <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
@@ -2647,10 +2655,30 @@ export default function Dashboard() {
                     )}
                   >
                     {selectedNote.image_url && (
-                      <div
-                        className="absolute inset-0 bg-cover bg-center opacity-40 rounded-xl"
-                        style={{ backgroundImage: `url(${selectedNote.image_url})`, pointerEvents: 'none' }}
-                      />
+                      <>
+                        <div
+                          className="absolute inset-0 bg-cover bg-center rounded-xl"
+                          style={{
+                            backgroundImage: `url(${selectedNote.image_url})`,
+                            pointerEvents: 'none',
+                            opacity: imageOpacity
+                          }}
+                        />
+                        <div className={cn(
+                          "absolute bottom-4 right-4 z-20 p-1.5 rounded-full backdrop-blur-sm flex items-center gap-2 w-24 opacity-60 hover:opacity-100 transition-opacity duration-200",
+                          isDark
+                            ? "bg-black/5"
+                            : "bg-white/5"
+                        )}>
+                          <Slider
+                            defaultValue={[imageOpacity * 100]}
+                            max={100}
+                            step={1}
+                            onValueChange={(value) => setImageOpacity(value[0] / 100)}
+                            className="w-full"
+                          />
+                        </div>
+                      </>
                     )}
 
                     <div className="relative z-10 p-6 pb-3 border-b border-gray-200/10">
@@ -2666,6 +2694,7 @@ export default function Dashboard() {
                         onClick={() => {
                           handleEditNote(selectedNote);
                           setSelectedNote(null);
+                          setImageOpacity(0.4); // Reset opacity when editing
                         }}
                         className={cn(
                               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors",
@@ -2678,7 +2707,10 @@ export default function Dashboard() {
                             <span className="text-sm font-medium">Edit</span>
                       </button>
                       <button
-                        onClick={() => setSelectedNote(null)}
+                        onClick={() => {
+                          setSelectedNote(null);
+                          setImageOpacity(0.4); // Reset opacity when closing
+                        }}
                         className={cn(
                           "p-2 rounded-lg transition-colors",
                           isDark
