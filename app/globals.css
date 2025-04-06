@@ -78,19 +78,19 @@
     border-color: var(--border);
     outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
   }
-  
+
   html {
     transition: background-color var(--transition-duration) var(--transition-timing),
                 color var(--transition-duration) var(--transition-timing);
   }
-  
+
   body {
     background-color: var(--background);
     color: var(--foreground);
     transition: background-color var(--transition-duration) var(--transition-timing),
                 color var(--transition-duration) var(--transition-timing);
   }
-  
+
   /* Add transitions to common elements that change with theme */
   button, a, div, span, nav, header, footer, main, aside, input, textarea, select {
     transition: background-color var(--transition-duration) var(--transition-timing),
@@ -121,10 +121,21 @@
 }
 
 @layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
   .animate-rainbow {
     animation: rainbow 4s linear infinite;
   }
-  
+
   @keyframes rainbow {
     from {
       background-position: 0% center;

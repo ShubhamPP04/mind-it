@@ -22,7 +22,7 @@ import { AVAILABLE_ICONS } from '@/lib/icons'
 import { MenuBar } from "../components/ui/menu-bar"
 import { Globe } from "lucide-react"
 import Image from 'next/image'
-import { SimpleFormattingToolbar } from "@/components/ui/simple-formatting-toolbar"
+import { MobileFormattingToolbar } from "@/components/ui/mobile-formatting-toolbar"
 import { AIGenerationAnimation } from "@/components/ui/ai-generation-animation"
 import { Slider } from "@/components/ui/slider"
 
@@ -90,9 +90,9 @@ export default function Dashboard() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [imageOpacity, setImageOpacity] = useState<number>(0.4)
   const [selectedModel, setSelectedModel] = useState<Model>({
-    provider: 'gemini',
-    name: 'gemini-2.0-flash',
-    displayName: 'Gemini 2.0 Flash'
+    provider: 'openrouter',
+    name: 'google/gemini-2.5-pro-exp-03-25:free',
+    displayName: 'Gemini 2.5 Pro Exp'
   })
   const [spaces, setSpaces] = useState<Space[]>([])
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null)
@@ -1952,7 +1952,7 @@ export default function Dashboard() {
 
                             <div className="relative">
                               {/* Simple Formatting Toolbar */}
-                              <SimpleFormattingToolbar
+                              <MobileFormattingToolbar
                                 isDark={isDark}
                                 selectedText={selectedText}
                                 onFormat={(format, text) => {

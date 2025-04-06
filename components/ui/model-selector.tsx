@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
-import { ChevronDown, Sparkles, Zap, Brain, Star } from 'lucide-react';
+import { ChevronDown, Sparkles, Zap, Brain, Star, Bot, Cpu, Atom, Lightbulb } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 
 export type Model = {
@@ -21,6 +21,18 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
+    name: 'google/gemini-2.5-pro-exp-03-25:free',
+    displayName: 'Gemini 2.5 Pro Exp',
+    description: 'Latest experimental Gemini 2.5 Pro model with enhanced capabilities'
+  },
+  {
+    provider: 'openrouter',
+    name: 'meta-llama/llama-4-scout:free',
+    displayName: 'Llama 4 Scout',
+    description: 'Smaller, faster Llama 4 model with excellent performance'
+  },
+  {
+    provider: 'openrouter',
     name: 'meta-llama/llama-4-maverick:free',
     displayName: 'Llama 4 Maverick',
     description: 'High-performance open model with excellent reasoning capabilities'
@@ -30,12 +42,6 @@ const models: Model[] = [
     name: 'openrouter/quasar-alpha',
     displayName: 'Quasar Alpha',
     description: 'Newest experimental model with superior multimodal capabilities'
-  },
-  {
-    provider: 'openrouter',
-    name: 'google/gemini-pro:free',
-    displayName: 'Gemini Pro',
-    description: 'Most powerful Gemini model with 2M token context window'
   },
   {
     provider: 'openrouter',
@@ -54,6 +60,12 @@ const models: Model[] = [
     name: 'meta-llama/llama-3.3-70b-instruct:free',
     displayName: 'Llama 3.3 70B',
     description: 'Latest Llama model with 131K context'
+  },
+  {
+    provider: 'openrouter',
+    name: 'moonshotai/moonlight-16b-a3b-instruct:free',
+    displayName: 'Moonlight 16B',
+    description: 'Efficient 16B model with strong reasoning and instruction following'
   }
 ];
 
@@ -73,18 +85,18 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
         className={cn(
           "flex items-center justify-between gap-2 h-10 px-4 rounded-lg text-sm transition-all duration-200 min-w-[200px]",
           isDark
-            ? "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 border border-white/10 hover:border-white/20 text-white shadow-sm"
-            : "bg-gradient-to-br from-zinc-50/90 to-zinc-100/90 border border-black/10 hover:border-black/20 text-black shadow-sm",
+            ? "bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 border border-white/15 hover:border-white/25 text-white shadow-md hover:shadow-lg hover:from-zinc-800 hover:to-zinc-900"
+            : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 border border-black/15 hover:border-black/25 text-black shadow-md hover:shadow-lg hover:from-zinc-50 hover:to-zinc-100",
         )}
       >
         <div className="flex items-center gap-2">
           <div className={cn(
-            "flex items-center justify-center w-5 h-5 rounded-full",
+            "flex items-center justify-center w-6 h-6 rounded-full", // Slightly larger icon container
             selectedModel.provider === 'gemini'
-              ? (isDark ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30" : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20")
-              : (isDark ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30" : "bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20")
+              ? (isDark ? "bg-gradient-to-br from-purple-500/30 to-blue-500/30 border border-purple-500/40 shadow-sm shadow-purple-500/20" : "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 shadow-sm shadow-purple-500/10")
+              : (isDark ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/40 shadow-sm shadow-blue-500/20" : "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 shadow-sm shadow-blue-500/10")
           )}>
-            {selectedModel.provider === 'gemini' ? <Sparkles className="w-3 h-3" /> : <Brain className="w-3 h-3" />}
+            {selectedModel.provider === 'gemini' ? <Sparkles className="w-3.5 h-3.5" /> : <Brain className="w-3.5 h-3.5" />}
           </div>
           <span className="truncate font-medium">{selectedModel.displayName}</span>
         </div>
@@ -102,12 +114,12 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
             initial={{ opacity: 0, y: -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.15, type: "spring", stiffness: 200 }}
+            transition={{ duration: 0.2, type: "spring", stiffness: 200 }}
             className={cn(
-              "absolute top-full left-0 mt-1 w-[300px] rounded-lg shadow-lg overflow-hidden z-50",
+              "absolute top-full left-0 mt-1.5 w-[320px] rounded-xl shadow-xl overflow-hidden z-50 backdrop-blur-sm", // Wider dropdown with rounded corners
               isDark
-                ? "bg-black/90 border border-white/10"
-                : "bg-white/90 border border-black/10"
+                ? "bg-black/95 border border-white/15 shadow-purple-500/10"
+                : "bg-white/95 border border-black/15 shadow-purple-500/5"
             )}
           >
             <motion.div
@@ -128,11 +140,13 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
-                  "px-3 py-2 text-xs font-medium border-b flex items-center gap-1.5",
-                  isDark ? "text-white/70 border-white/10" : "text-black/70 border-black/10"
+                  "px-4 py-2.5 text-xs font-medium border-b flex items-center gap-2", // More padding
+                  isDark ? "text-white/80 border-white/15 bg-white/5" : "text-black/80 border-black/15 bg-black/5"
                 )}
               >
-                <Sparkles className="w-3 h-3" />
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-500/20 border border-purple-500/30">
+                  <Sparkles className="w-3 h-3" />
+                </div>
                 <span>Gemini Models</span>
               </motion.div>
               {models
@@ -149,18 +163,21 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "w-full text-left px-4 py-2 text-sm transition-colors duration-200",
+                      "w-full text-left px-4 py-2.5 text-sm transition-all duration-200", // More vertical padding
                       isDark
                         ? "text-white hover:bg-white/10"
                         : "text-black hover:bg-black/10",
                       selectedModel.name === model.name && (
                         isDark
-                          ? "bg-white/20"
-                          : "bg-black/20"
+                          ? "bg-purple-500/20 border-l-2 border-l-purple-500"
+                          : "bg-purple-500/10 border-l-2 border-l-purple-500"
                       )
                     )}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-500/20 border border-purple-500/30">
+                        <Sparkles className="w-2.5 h-2.5" />
+                      </div>
                       <div className="font-medium">{model.displayName}</div>
                       {model.name.includes('gemini-2.0') && (
                         <span className={cn(
@@ -186,11 +203,13 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
-                  "px-3 py-2 text-xs font-medium border-b mt-1 flex items-center gap-1.5",
-                  isDark ? "text-white/70 border-white/10" : "text-black/70 border-black/10"
+                  "px-4 py-2.5 text-xs font-medium border-b mt-1 flex items-center gap-2", // More padding
+                  isDark ? "text-white/80 border-white/15 bg-white/5" : "text-black/80 border-black/15 bg-black/5"
                 )}
               >
-                <Brain className="w-3 h-3" />
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30">
+                  <Brain className="w-3 h-3" />
+                </div>
                 <span>OpenRouter Models</span>
                 <span className={cn(
                   "ml-1 px-1.5 py-0.5 text-[10px] rounded-full",
@@ -222,7 +241,14 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
                       )
                     )}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30">
+                        {model.name.includes('gemini') ? <Sparkles className="w-2.5 h-2.5" /> :
+                         model.name.includes('llama') ? <Cpu className="w-2.5 h-2.5" /> :
+                         model.name.includes('mistral') ? <Atom className="w-2.5 h-2.5" /> :
+                         model.name.includes('moonlight') ? <Lightbulb className="w-2.5 h-2.5" /> :
+                         <Brain className="w-2.5 h-2.5" />}
+                      </div>
                       <div className="font-medium">{model.displayName}</div>
                       {model.name.includes('quasar') && (
                         <span className={cn(

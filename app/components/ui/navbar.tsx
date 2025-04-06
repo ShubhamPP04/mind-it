@@ -12,14 +12,15 @@ interface NavbarProps {
   className?: string
   isDark?: boolean
   onStartChat?: () => void
+  onShowNotes?: () => void
   onSignOut?: () => void
   onToggleSidebar?: () => void
   isSidebarOpen?: boolean
   email?: string
 }
 
-export function Navbar({ 
-  className, 
+export function Navbar({
+  className,
   isDark = false,
   onStartChat,
   onSignOut,
@@ -35,10 +36,10 @@ export function Navbar({
   const handleThemeChange = () => {
     // Add animation class to the document body
     document.body.classList.add('theme-transition');
-    
+
     // Toggle theme
     setTheme(isDark ? "light" : "dark");
-    
+
     // Remove the class after animation completes
     setTimeout(() => {
       document.body.classList.remove('theme-transition');
@@ -48,8 +49,8 @@ export function Navbar({
   return (
     <div className={cn(
       "fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-md",
-      isDark 
-        ? "bg-zinc-900/75 border-zinc-800/50" 
+      isDark
+        ? "bg-zinc-900/75 border-zinc-800/50"
         : "bg-white/75 border-zinc-200/50"
     )}>
       <nav
@@ -63,15 +64,15 @@ export function Navbar({
             onClick={onToggleSidebar}
             className={cn(
               "hidden md:block p-1.5 sm:p-2 rounded-lg transition-colors",
-              isDark 
-                ? "hover:bg-zinc-800 text-zinc-400" 
+              isDark
+                ? "hover:bg-zinc-800 text-zinc-400"
                 : "hover:bg-zinc-100 text-zinc-600"
             )}
           >
             <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <Link 
-            href="/dashboard" 
+          <Link
+            href="/dashboard"
             className={cn(
               "text-xl sm:text-2xl font-calendas italic tracking-tight pl-1 sm:pl-0",
               "relative transition-all duration-300",
@@ -94,15 +95,15 @@ export function Navbar({
             className={cn(
               "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md transition-all duration-300 text-xs sm:text-sm",
               "border relative overflow-hidden group whitespace-nowrap",
-              isDark 
-                ? "border-purple-700/40 text-purple-300" 
+              isDark
+                ? "border-purple-700/40 text-purple-300"
                 : "border-purple-300 text-purple-700"
             )}
           >
             <div className={cn(
               "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
-              isDark 
-                ? "bg-purple-900/30" 
+              isDark
+                ? "bg-purple-900/30"
                 : "bg-purple-100/80",
               "origin-left"
             )} />
@@ -128,14 +129,14 @@ export function Navbar({
             className={cn(
               "p-1.5 rounded-md transition-all duration-200 relative overflow-hidden group",
               "hover:scale-110 active:scale-95",
-              isDark 
-                ? "bg-zinc-800/80 text-yellow-300 hover:bg-zinc-800" 
+              isDark
+                ? "bg-zinc-800/80 text-yellow-300 hover:bg-zinc-800"
                 : "bg-zinc-100/80 text-blue-500 hover:bg-zinc-200/80"
             )}
             aria-label="Toggle theme"
           >
             <div className="relative w-4 h-4">
-              <div 
+              <div
                 className={cn(
                   "absolute inset-0 transition-all duration-300 transform",
                   isDark ? "opacity-100 rotate-0" : "opacity-0 rotate-90 scale-50"
@@ -143,7 +144,7 @@ export function Navbar({
               >
                 <Sun className="w-4 h-4" />
               </div>
-              <div 
+              <div
                 className={cn(
                   "absolute inset-0 transition-all duration-300 transform",
                   isDark ? "opacity-0 -rotate-90 scale-50" : "opacity-100 rotate-0"
@@ -152,7 +153,7 @@ export function Navbar({
                 <Moon className="w-4 h-4" />
               </div>
             </div>
-            <div 
+            <div
               className={cn(
                 "absolute inset-0 w-full h-full transform scale-0 group-hover:scale-100 transition-transform duration-300 origin-center",
                 "opacity-20 rounded-full",
@@ -165,15 +166,15 @@ export function Navbar({
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className={cn(
                 "flex items-center gap-1 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200",
-                isDark 
-                  ? "hover:bg-zinc-800/90 text-zinc-400" 
+                isDark
+                  ? "hover:bg-zinc-800/90 text-zinc-400"
                   : "hover:bg-zinc-100/90 text-zinc-600"
               )}
             >
               <Avatar className="h-6 w-6 sm:h-8 sm:w-8 transition-all duration-300 hover:scale-105">
-                <AvatarImage 
-                  src={profile?.avatar_url || undefined} 
-                  alt="User avatar" 
+                <AvatarImage
+                  src={profile?.avatar_url || undefined}
+                  alt="User avatar"
                   className="object-cover object-center"
                 />
                 <AvatarFallback className="animate-pulse bg-muted">
@@ -189,11 +190,11 @@ export function Navbar({
             <div className={cn(
               "absolute right-0 mt-2 w-56 rounded-lg shadow-lg py-1 border backdrop-blur-md",
               "transition-all duration-200 origin-top",
-              isProfileOpen 
-                ? "opacity-100 translate-y-0 scale-100" 
+              isProfileOpen
+                ? "opacity-100 translate-y-0 scale-100"
                 : "opacity-0 -translate-y-2 scale-95 pointer-events-none",
-              isDark 
-                ? "bg-zinc-900/75 border-zinc-800/50" 
+              isDark
+                ? "bg-zinc-900/75 border-zinc-800/50"
                 : "bg-white/75 border-zinc-200/50"
             )}>
               {email && (
@@ -203,9 +204,9 @@ export function Navbar({
                 )}>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8 transition-all duration-300">
-                      <AvatarImage 
-                        src={profile?.avatar_url || undefined} 
-                        alt="User avatar" 
+                      <AvatarImage
+                        src={profile?.avatar_url || undefined}
+                        alt="User avatar"
                         className="object-cover object-center"
                       />
                       <AvatarFallback className="animate-pulse bg-muted">
@@ -234,8 +235,8 @@ export function Navbar({
                   onClick={() => window.location.href = '/account'}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-200",
-                    isDark 
-                      ? "hover:bg-zinc-800/90 text-zinc-300 hover:text-white" 
+                    isDark
+                      ? "hover:bg-zinc-800/90 text-zinc-300 hover:text-white"
                       : "hover:bg-zinc-100/90 text-zinc-600 hover:text-black"
                   )}
                 >
@@ -246,8 +247,8 @@ export function Navbar({
                   onClick={onSignOut}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-200",
-                    isDark 
-                      ? "hover:bg-zinc-800/90 text-zinc-300 hover:text-white" 
+                    isDark
+                      ? "hover:bg-zinc-800/90 text-zinc-300 hover:text-white"
                       : "hover:bg-zinc-100/90 text-zinc-600 hover:text-black"
                   )}
                 >

@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { Send, Bot, User, X, ChevronLeft, ExternalLink, History, PlusCircle, MessagesSquare } from 'lucide-react'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
+import { ChatGenerationAnimation } from '@/components/ui/chat-generation-animation'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { generateNoteContent } from '@/utils/gemini'
@@ -86,9 +87,9 @@ export default function ChatPage() {
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === 'dark' : false
   const [selectedModel, setSelectedModel] = useState<Model>({
-    provider: 'gemini',
-    name: 'gemini-2.0-flash',
-    displayName: 'Gemini 2.0'
+    provider: 'openrouter',
+    name: 'google/gemini-2.5-pro-exp-03-25:free',
+    displayName: 'Gemini 2.5 Pro Exp'
   })
   const supabase = createClient()
 
@@ -384,6 +385,44 @@ export default function ChatPage() {
 
     // Save user message to database
     const savedUserMsg = await saveMessage(userMsg, conversationId)
+
+    // Check if the user is asking for their notes or memories
+    const lowerCaseMessage = userMessage.toLowerCase()
+    if (lowerCaseMessage === 'my notes' || lowerCaseMessage === 'my memories') {
+      // Create a response that shows all the user's notes
+      const allNotes = userContent.notes
+
+      if (allNotes.length === 0) {
+        // No notes found
+        const assistantMsg: Message = {
+          role: 'assistant',
+          content: "You don't have any notes yet. You can create notes in the dashboard."
+        }
+        setMessages(prev => [...prev, assistantMsg])
+        await saveMessage(assistantMsg, conversationId)
+        return
+      }
+
+      // Format all notes as sources
+      const noteSources = allNotes.map(note => ({
+        type: 'note' as const,
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        space_id: note.space_id
+      }))
+
+      // Create a response with all notes as sources
+      const assistantMsg: Message = {
+        role: 'assistant',
+        content: `Here are all your notes (${allNotes.length} total):\n\n${allNotes.map((note, index) => `**${index + 1}. ${note.title}**`).join('\n')}`,
+        sources: noteSources
+      }
+
+      setMessages(prev => [...prev, assistantMsg])
+      await saveMessage(assistantMsg, conversationId)
+      return
+    }
 
     setIsGenerating(true)
 
@@ -696,9 +735,9 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto pt-20 pb-32">
+      <div className="flex-1 overflow-y-auto pt-20 pb-32 bg-gradient-to-b from-transparent">
         <div className="max-w-4xl mx-auto px-3 sm:px-4">
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-5 sm:space-y-7">
             <AnimatePresence initial={false}>
               {messages.map((message, index) => (
                 <motion.div
@@ -715,10 +754,10 @@ export default function ChatPage() {
                 >
                   {message.role === 'assistant' && (
                     <div className={cn(
-                      "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0",
-                      isDark ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30" : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20"
+                      "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-md",
+                      isDark ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 border border-purple-500/50" : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 border border-purple-500/40"
                     )}>
-                      <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
                     </div>
                   )}
                   <motion.div
@@ -726,15 +765,15 @@ export default function ChatPage() {
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.3, type: "spring", stiffness: 100 }}
                     className={cn(
-                      "relative flex-1 max-w-[calc(100%-64px)] sm:max-w-2xl rounded-2xl px-3 py-2 sm:px-4 sm:py-3 break-words group shadow-sm",
+                      "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-5 sm:py-4 break-words group shadow-md",
                       message.role === 'assistant' ? (
                         isDark
-                          ? "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 text-white/90 border border-white/5"
-                          : "bg-gradient-to-br from-zinc-50/90 to-zinc-100/90 text-black/90 border border-black/5"
+                          ? "bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 text-white/95 border border-white/10"
+                          : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 text-black/95 border border-black/10"
                       ) : (
                         isDark
-                          ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-white border border-white/10"
-                          : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 text-black border border-black/10"
+                          ? "bg-gradient-to-br from-purple-600/30 to-blue-600/30 text-white border border-white/15"
+                          : "bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-black border border-black/15"
                       )
                     )}
                   >
@@ -898,10 +937,10 @@ export default function ChatPage() {
                   </motion.div>
                   {message.role === 'user' && (
                     <div className={cn(
-                      "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0",
-                      isDark ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30" : "bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20"
+                      "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-md",
+                      isDark ? "bg-gradient-to-br from-blue-600/40 to-purple-600/40 border border-blue-500/50" : "bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/40"
                     )}>
-                      <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
                     </div>
                   )}
                 </motion.div>
@@ -915,25 +954,18 @@ export default function ChatPage() {
                 className="flex gap-2 sm:gap-4 text-sm leading-relaxed items-start"
               >
                 <div className={cn(
-                  "flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0",
-                  isDark ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30" : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20"
+                  "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-md",
+                  isDark ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 border border-purple-500/50" : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 border border-purple-500/40"
                 )}>
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
                 </div>
                 <div className={cn(
-                  "relative flex-1 max-w-[calc(100%-64px)] sm:max-w-2xl rounded-2xl px-4 py-3 shadow-sm",
+                  "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 shadow-md",
                   isDark
-                    ? "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 text-white/90 border border-white/5"
-                    : "bg-gradient-to-br from-zinc-50/90 to-zinc-100/90 text-black/90 border border-black/5"
+                    ? "bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 text-white/95 border border-white/10"
+                    : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 text-black/95 border border-black/10"
                 )}>
-                  <div className="flex items-center gap-2">
-                    <div className="flex space-x-1.5">
-                      <div className={`w-2 h-2 rounded-full ${isDark ? 'bg-white/40' : 'bg-black/40'} animate-pulse`} style={{ animationDelay: '0ms' }}></div>
-                      <div className={`w-2 h-2 rounded-full ${isDark ? 'bg-white/40' : 'bg-black/40'} animate-pulse`} style={{ animationDelay: '300ms' }}></div>
-                      <div className={`w-2 h-2 rounded-full ${isDark ? 'bg-white/40' : 'bg-black/40'} animate-pulse`} style={{ animationDelay: '600ms' }}></div>
-                    </div>
-                    <span className="text-sm opacity-70">Generating response...</span>
-                  </div>
+                  <ChatGenerationAnimation isDark={isDark} />
                 </div>
               </motion.div>
             )}
@@ -973,10 +1005,10 @@ export default function ChatPage() {
               </button>
             </div>
             <div className={cn(
-              "relative rounded-xl border shadow-sm overflow-hidden",
+              "relative rounded-xl border shadow-md overflow-hidden",
               isDark
-                ? "bg-zinc-800/50 border-white/10"
-                : "bg-white/50 border-black/10",
+                ? "bg-zinc-800/60 border-white/15 hover:border-white/20"
+                : "bg-white/60 border-black/15 hover:border-black/20",
               isGenerating && "opacity-50 pointer-events-none"
             )}>
               <textarea
@@ -1005,13 +1037,13 @@ export default function ChatPage() {
                   type="submit"
                   disabled={!input.trim() || isGenerating}
                   className={cn(
-                    "p-1.5 sm:p-2 rounded-lg transition-colors",
+                    "p-2 sm:p-2.5 rounded-lg transition-all duration-200 shadow-sm",
                     isDark
-                      ? "bg-gradient-to-br from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-white disabled:opacity-30"
-                      : "bg-gradient-to-br from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 text-black disabled:opacity-30"
+                      ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 hover:from-purple-600/50 hover:to-blue-600/50 text-white disabled:opacity-30 hover:shadow-md hover:scale-105"
+                      : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 hover:from-purple-500/40 hover:to-blue-500/40 text-white disabled:opacity-30 hover:shadow-md hover:scale-105"
                   )}
                 >
-                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-sm" />
                 </button>
               </div>
             </div>
@@ -1020,7 +1052,21 @@ export default function ChatPage() {
                 "text-xs",
                 isDark ? "text-white/50" : "text-black/50"
               )}>
-                {isGenerating ? "Generating..." : "AI powered by Gemini & OpenRouter"}
+                {isGenerating ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative w-3 h-3">
+                      <div className={cn(
+                        "absolute inset-0 rounded-full animate-ping",
+                        isDark ? "bg-purple-400/40" : "bg-purple-500/40"
+                      )} style={{ animationDuration: '2s' }} />
+                      <div className={cn(
+                        "absolute inset-0 rounded-full",
+                        isDark ? "bg-purple-400/80" : "bg-purple-500/80"
+                      )} />
+                    </div>
+                    <span>AI is thinking...</span>
+                  </div>
+                ) : "AI powered by Gemini & OpenRouter"}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1028,6 +1074,8 @@ export default function ChatPage() {
                   onClick={() => {
                     // Add example prompt
                     const examples = [
+                      "my notes",
+                      "my memories",
                       "Summarize my notes about machine learning",
                       "What are the key points from my saved websites?",
                       "Help me organize my thoughts on this topic",
