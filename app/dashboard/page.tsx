@@ -22,6 +22,8 @@ import { AVAILABLE_ICONS } from '@/lib/icons'
 import { MenuBar } from "../components/ui/menu-bar"
 import { Globe } from "lucide-react"
 import Image from 'next/image'
+import { SimpleFormattingToolbar } from "@/components/ui/simple-formatting-toolbar"
+import { AIGenerationAnimation } from "@/components/ui/ai-generation-animation"
 
 interface Space {
   id: string
@@ -77,6 +79,9 @@ export default function Dashboard() {
   const [notes, setNotes] = useState<Note[]>([])
   const [showNewNote, setShowNewNote] = useState(false)
   const [newNote, setNewNote] = useState({ title: '', content: '', image_url: '' })
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [selectedText, setSelectedText] = useState<string | null>(null)
+  const [selectionRange, setSelectionRange] = useState<{start: number; end: number} | null>(null)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isAIEnabled, setIsAIEnabled] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -217,10 +222,10 @@ export default function Dashboard() {
         // Now handle source selection if parameters exist
         if (sourceType && sourceId) {
           console.log('Source navigation requested:', { sourceType, sourceId })
-          
+
           // Set the active tab based on source type
           setActiveTab(sourceType as 'note' | 'website' | 'document')
-          
+
           // The space may have changed, so we need to wait for the content to load
           setTimeout(() => {
             console.log('Selecting source after timeout')
@@ -264,12 +269,12 @@ export default function Dashboard() {
           .channel('documents_channel')
           .on(
             'postgres_changes' as any, // TODO: Fix type
-            { 
-              event: '*', 
-              schema: 'public', 
+            {
+              event: '*',
+              schema: 'public',
               table: 'documents',
               filter: `user_id=eq.${user.id}`
-            }, 
+            },
             async (payload: { new: { space_id: string } | null }) => {
               if (selectedSpace && payload.new && payload.new.space_id === selectedSpace.id) {
                 await fetchDocuments(user.id)
@@ -282,12 +287,12 @@ export default function Dashboard() {
           .channel('notes_channel')
           .on(
             'postgres_changes' as any, // TODO: Fix type
-            { 
-              event: '*', 
-              schema: 'public', 
+            {
+              event: '*',
+              schema: 'public',
               table: 'notes',
               filter: `user_id=eq.${user.id}`
-            }, 
+            },
             async (payload: { new: { space_id: string } | null }) => {
               if (selectedSpace && payload.new && payload.new.space_id === selectedSpace.id) {
                 await fetchNotes(user.id)
@@ -372,7 +377,7 @@ export default function Dashboard() {
       console.log('Creating new space:', name)
 
       const color = `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`
-      
+
       const { data, error } = await supabase
         .from('spaces')
         .insert({
@@ -422,7 +427,7 @@ export default function Dashboard() {
       if (error) throw error
 
       if (data) {
-        setSpaces(prev => prev.map(space => 
+        setSpaces(prev => prev.map(space =>
           space.id === spaceId ? data : space
         ))
         if (selectedSpace?.id === spaceId) {
@@ -479,14 +484,14 @@ export default function Dashboard() {
           .delete()
           .eq('space_id', spaceId)
           .eq('user_id', user.id),
-        
+
         // Delete websites
         supabase
           .from('websites')
           .delete()
           .eq('space_id', spaceId)
           .eq('user_id', user.id),
-        
+
         // Delete documents
         supabase
           .from('documents')
@@ -516,7 +521,7 @@ export default function Dashboard() {
         setWebsites([])
         setDocuments([])
       }
-      
+
       setError(null)
     } catch (error) {
       console.error('Error in handleDeleteSpace:', error)
@@ -534,7 +539,7 @@ export default function Dashboard() {
       }
 
       console.log('Fetching notes for space:', selectedSpace.id)
-      
+
       const { data, error } = await supabase
         .from('notes')
         .select('*')
@@ -546,7 +551,7 @@ export default function Dashboard() {
         console.error('Error in fetchNotes:', error)
         throw error
       }
-      
+
       console.log(`Fetched ${data?.length || 0} notes for space ${selectedSpace.id}`)
       setNotes(data || [])
     } catch (error) {
@@ -586,7 +591,7 @@ export default function Dashboard() {
       }
 
       console.log('Selecting space:', space.id, space.name)
-      
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         console.error('No user found')
@@ -595,12 +600,12 @@ export default function Dashboard() {
 
       // First set the selected space
       setSelectedSpace(space)
-        
+
       // Clear current content before fetching new content
       setNotes([])
       setWebsites([])
       setDocuments([])
-        
+
       // Reset UI states
       setShowNewNote(false)
       setEditingNote(null)
@@ -648,7 +653,7 @@ export default function Dashboard() {
       // Update state with fetched content
       setNotes(notesResult.data || [])
       setWebsites(websitesResult.data || [])
-      
+
       // Process documents to include public URLs
       const documentsWithUrls = await Promise.all(
         (documentsResult.data || []).map(async (doc) => {
@@ -850,7 +855,7 @@ export default function Dashboard() {
             }
 
             // Update notes array with the updated note
-            setNotes(prev => prev.map(note => 
+            setNotes(prev => prev.map(note =>
               note.id === editingNote.id ? updatedNote : note
             ))
             setSelectedNote(updatedNote)
@@ -931,7 +936,7 @@ export default function Dashboard() {
         setIsGenerating(true);
         const currentContent = prompt; // Store the current content
         setNewNote(prev => ({ ...prev, content: '' })); // Clear the input immediately
-        
+
         if (selectedModel.provider === 'gemini') {
           const aiContent = await generateNoteContent(prompt);
           setNewNote(prev => ({ ...prev, content: aiContent }));
@@ -949,12 +954,12 @@ export default function Dashboard() {
             const decoder = new TextDecoder();
             let buffer = '';
             let accumulatedContent = '';
-            
+
             try {
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                
+
                 // Append new chunk to buffer
                 buffer += decoder.decode(value, { stream: true });
 
@@ -1175,8 +1180,8 @@ export default function Dashboard() {
   const handleDocumentDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
-    if (file && (file.type === 'application/pdf' || 
-        file.type === 'application/msword' || 
+    if (file && (file.type === 'application/pdf' ||
+        file.type === 'application/msword' ||
         file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
       setDocumentFile(file)
     }
@@ -1204,7 +1209,7 @@ export default function Dashboard() {
         console.error('Error in fetchWebsites:', error)
         throw error
       }
-      
+
       console.log(`Fetched ${data?.length || 0} websites for space ${selectedSpace.id}`)
       setWebsites(data || [])
     } catch (error) {
@@ -1317,15 +1322,15 @@ export default function Dashboard() {
 
       // Update local state
       if (type === 'note') {
-        setNotes(notes.map(note => 
+        setNotes(notes.map(note =>
           note.id === itemId ? { ...note, color } : note
         ))
       } else if (type === 'website') {
-        setWebsites(websites.map(website => 
+        setWebsites(websites.map(website =>
           website.id === itemId ? { ...website, color } : website
         ))
       } else {
-        setDocuments(documents.map(document => 
+        setDocuments(documents.map(document =>
           document.id === itemId ? { ...document, color } : document
         ))
       }
@@ -1412,13 +1417,13 @@ export default function Dashboard() {
       const params = new URLSearchParams(window.location.search);
       const sourceType = params.get('type');
       const sourceId = params.get('id');
-      
+
       if (sourceType && sourceId && selectedSpace) {
         console.log('Trying to handle source selection after space loaded:', sourceType, sourceId);
-        
+
         // Set the active tab based on source type
         setActiveTab(sourceType as 'note' | 'website' | 'document');
-        
+
         // Try to select the specific source
         if (sourceType === 'note') {
           const note = notes.find(n => n.id === sourceId);
@@ -1435,27 +1440,27 @@ export default function Dashboard() {
         }
       }
     };
-    
+
     if (selectedSpace) {
       handleSourceNavigation();
     }
   }, [selectedSpace, notes, websites, documents]);
 
-  // Add this useEffect to handle source selection after content is loaded  
+  // Add this useEffect to handle source selection after content is loaded
   useEffect(() => {
     // If we have URL parameters for source navigation, try to select the source
     const handleSourceSelectionAfterContentLoad = async () => {
       const params = new URLSearchParams(window.location.search);
       const sourceType = params.get('type');
       const sourceId = params.get('id');
-      
+
       if (sourceType && sourceId && selectedSpace) {
-        console.log('Trying to select source from URL parameters after content load', 
+        console.log('Trying to select source from URL parameters after content load',
           { sourceType, sourceId, space: selectedSpace.name });
-        
+
         // Set the active tab based on source type
         setActiveTab(sourceType as 'note' | 'website' | 'document');
-        
+
         // Use setTimeout to ensure state updates have completed
         setTimeout(() => {
           // Try to find and select the source in the loaded content
@@ -1475,7 +1480,7 @@ export default function Dashboard() {
         }, 500); // Give a 500ms delay to ensure state is fully updated
       }
     };
-    
+
     // Only run if we have content loaded
     if (selectedSpace && (notes.length > 0 || websites.length > 0 || documents.length > 0)) {
       handleSourceSelectionAfterContentLoad();
@@ -1532,7 +1537,7 @@ export default function Dashboard() {
           isSidebarOpen={isSidebarOpen}
             email={email || undefined}
         />
-          
+
           {/* Mobile Spaces Bar */}
           <div className="md:hidden w-full overflow-x-auto sticky top-14 z-30 border-b px-2 py-2"
             style={{
@@ -1553,7 +1558,7 @@ export default function Dashboard() {
                     onTouchCancel={handleTouchEnd}
                     className={cn(
                       "flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors whitespace-nowrap relative",
-                      isDark 
+                      isDark
                         ? selectedSpace?.id === space.id
                           ? "bg-white/10 text-white"
                           : "text-white/60 hover:bg-white/5"
@@ -1566,7 +1571,7 @@ export default function Dashboard() {
                       {space.icon && (
                         <div className={cn(
                           "w-4 h-4",
-                          isDark 
+                          isDark
                             ? selectedSpace?.id === space.id
                               ? "text-white"
                               : "text-white/60"
@@ -1593,8 +1598,8 @@ export default function Dashboard() {
                   }}
                   className={cn(
                     "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors whitespace-nowrap flex-shrink-0",
-                    isDark 
-                      ? "text-white/60 hover:bg-white/5 border border-white/10" 
+                    isDark
+                      ? "text-white/60 hover:bg-white/5 border border-white/10"
                       : "text-black/60 hover:bg-black/5 border border-black/10"
                   )}
                 >
@@ -1604,7 +1609,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          
+
           <main className="flex-1 overflow-auto p-4 md:pt-24 pt-16">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Notes Section */}
@@ -1617,9 +1622,9 @@ export default function Dashboard() {
                   {selectedSpace ? selectedSpace.name : 'All Notes'}
                 </h2>
                 {selectedSpace && (
-                  <div 
+                  <div
                       className="px-2.5 py-1 rounded-full text-sm"
-                    style={{ 
+                    style={{
                         backgroundColor: `${selectedSpace.color}20`,  // Using space color with 20% opacity
                         color: selectedSpace.color  // Using space color for text
                     }}
@@ -1657,8 +1662,8 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
                     "p-4 sm:p-6 rounded-xl border",
-                  isDark 
-                    ? "bg-black/60 border-white/10" 
+                  isDark
+                    ? "bg-black/60 border-white/10"
                     : "bg-white/60 border-black/5"
                 )}
               >
@@ -1687,8 +1692,8 @@ export default function Dashboard() {
                         onClick={handleWebsiteClick}
                         className={cn(
                             "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
-                          isDark 
-                            ? "border-white/10 hover:bg-white/5" 
+                          isDark
+                            ? "border-white/10 hover:bg-white/5"
                             : "border-black/10 hover:bg-black/5",
                           activeTab === 'website' && (isDark ? "bg-white/5" : "bg-black/5")
                         )}
@@ -1709,8 +1714,8 @@ export default function Dashboard() {
                         onClick={handleNoteClick}
                         className={cn(
                             "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
-                          isDark 
-                            ? "border-white/10 hover:bg-white/5" 
+                          isDark
+                            ? "border-white/10 hover:bg-white/5"
                             : "border-black/10 hover:bg-black/5",
                           activeTab === 'note' && (isDark ? "bg-white/5" : "bg-black/5")
                         )}
@@ -1731,8 +1736,8 @@ export default function Dashboard() {
                         onClick={handleDocumentClick}
                         className={cn(
                             "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
-                          isDark 
-                            ? "border-white/10 hover:bg-white/5" 
+                          isDark
+                            ? "border-white/10 hover:bg-white/5"
                             : "border-black/10 hover:bg-black/5",
                           activeTab === 'document' && (isDark ? "bg-white/5" : "bg-black/5")
                         )}
@@ -1761,8 +1766,8 @@ export default function Dashboard() {
                               placeholder="Enter website URL"
                               className={cn(
                                 "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
-                                isDark 
-                                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                isDark
+                                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
                                   : "border-black/10 focus:border-black/20 placeholder:text-black/30"
                               )}
                             />
@@ -1771,11 +1776,11 @@ export default function Dashboard() {
 
                         {activeTab === 'document' && (
                           <div className="space-y-3">
-                            <div 
+                            <div
                                 className={cn(
                                 "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
-                                isDark 
-                                  ? "border-white/10 hover:bg-white/5" 
+                                isDark
+                                  ? "border-white/10 hover:bg-white/5"
                                   : "border-black/10 hover:bg-black/5"
                               )}
                               onClick={() => document.getElementById('document-upload')?.click()}
@@ -1815,8 +1820,8 @@ export default function Dashboard() {
                                 placeholder="Title"
                     className={cn(
                                   "flex-1 px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
-                      isDark 
-                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                      isDark
+                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
                                     : "border-black/10 focus:border-black/20 placeholder:text-black/30"
                                 )}
                               />
@@ -1824,7 +1829,7 @@ export default function Dashboard() {
                       onClick={() => setIsAIEnabled(!isAIEnabled)}
                       className={cn(
                                   "ml-2 p-2 rounded-lg transition-colors flex items-center gap-2",
-                      isDark 
+                      isDark
                                     ? isAIEnabled ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                                     : isAIEnabled ? "bg-black/10 text-black" : "text-black/60 hover:text-black hover:bg-black/5"
                                 )}
@@ -1833,15 +1838,15 @@ export default function Dashboard() {
                                 <span className="hidden sm:inline">AI Mode</span>
                     </button>
                       </div>
-                            
+
                             {/* Image upload section */}
-                            <div 
+                            <div
                               className={cn(
                                 "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
-                                newNote.image_url 
-                                  ? "bg-cover bg-center relative" 
-                                  : isDark 
-                                    ? "border-white/10 hover:bg-white/5" 
+                                newNote.image_url
+                                  ? "bg-cover bg-center relative"
+                                  : isDark
+                                    ? "border-white/10 hover:bg-white/5"
                                     : "border-black/10 hover:bg-black/5",
                                 "group"
                               )}
@@ -1858,13 +1863,13 @@ export default function Dashboard() {
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0]
                                   if (!file) return
-                                  
+
                                   // Check if it's an image
                                   if (!file.type.startsWith('image/')) {
                                     setError('Please upload an image file (JPEG, PNG, GIF)')
                                       return
                                     }
-                                  
+
                                   setIsImageUploading(true)
                                   try {
                                     const imageUrl = await handleImageUpload(file)
@@ -1944,39 +1949,120 @@ export default function Dashboard() {
                                 </div>
 
                             <div className="relative">
+                              {/* Simple Formatting Toolbar */}
+                              <SimpleFormattingToolbar
+                                isDark={isDark}
+                                selectedText={selectedText}
+                                onFormat={(format, text) => {
+                                  if (!selectionRange || !text) return;
+
+                                  const { start, end } = selectionRange;
+                                  const content = newNote.content;
+                                  let newContent = content;
+
+                                  switch (format) {
+                                    case 'bold':
+                                      newContent = content.substring(0, start) + `**${text}**` + content.substring(end);
+                                      break;
+                                    case 'italic':
+                                      newContent = content.substring(0, start) + `*${text}*` + content.substring(end);
+                                      break;
+                                    case 'underline':
+                                      newContent = content.substring(0, start) + `<u>${text}</u>` + content.substring(end);
+                                      break;
+                                    case 'bullet':
+                                      newContent = content.substring(0, start) + `\n- ${text}` + content.substring(end);
+                                      break;
+                                    case 'numbered':
+                                      newContent = content.substring(0, start) + `\n1. ${text}` + content.substring(end);
+                                      break;
+                                    case 'heading':
+                                      newContent = content.substring(0, start) + `\n## ${text}` + content.substring(end);
+                                      break;
+                                    case 'quote':
+                                      newContent = content.substring(0, start) + `\n> ${text}` + content.substring(end);
+                                      break;
+                                    case 'link':
+                                      newContent = content.substring(0, start) + `[${text}](url)` + content.substring(end);
+                                      break;
+                                    case 'code':
+                                      newContent = content.substring(0, start) + `\`${text}\`` + content.substring(end);
+                                      break;
+                                    default:
+                                      return;
+                                  }
+
+                                  setNewNote({ ...newNote, content: newContent });
+
+                                  // Focus back on the textarea and set cursor position after the formatted text
+                                  setTimeout(() => {
+                                    if (textareaRef.current) {
+                                      textareaRef.current.focus();
+                                    }
+                                  }, 0);
+                                }}
+                              />
+
                               <textarea
+                                ref={textareaRef}
                                 value={newNote.content}
                                 onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
                                 onKeyDown={handleKeyDown}
+                                onSelect={() => {
+                                  if (textareaRef.current) {
+                                    const start = textareaRef.current.selectionStart;
+                                    const end = textareaRef.current.selectionEnd;
+
+                                    if (start !== end) {
+                                      const text = newNote.content.substring(start, end);
+                                      setSelectedText(text);
+                                      setSelectionRange({ start, end });
+                                    } else {
+                                      setSelectedText(null);
+                                      setSelectionRange(null);
+                                    }
+                                  }
+                                }}
+                                onMouseUp={() => {
+                                  if (textareaRef.current) {
+                                    const start = textareaRef.current.selectionStart;
+                                    const end = textareaRef.current.selectionEnd;
+
+                                    if (start !== end) {
+                                      const text = newNote.content.substring(start, end);
+                                      setSelectedText(text);
+                                      setSelectionRange({ start, end });
+                                    }
+                                  }
+                                }}
                                 placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
                                 rows={6}
                                 className={cn(
                                   "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
-                                  isDark 
-                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30" 
+                                  isDark
+                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
                                     : "border-black/10 focus:border-black/20 placeholder:text-black/30"
                                 )}
                               />
-                              {isGenerating && (
-                                  <div className={cn(
-                                  "absolute inset-0 flex items-center justify-center rounded-lg",
-                                  isDark ? "bg-black/60" : "bg-white/60"
-                                  )}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current" />
-                                    <span className="text-sm">Generating...</span>
-                                  </div>
-                                </div>
-                              )}
+
+                              {/* Enhanced AI Generation Animation */}
+                              <AnimatePresence>
+                                {isGenerating && (
+                                  <AIGenerationAnimation
+                                    isDark={isDark}
+                                    isGenerating={isGenerating}
+                                  />
+                                )}
+                              </AnimatePresence>
                               {isAIEnabled && !isGenerating && (
                                 <button
                                   onClick={async () => {
                                     const content = newNote.content.trim();
                                     if (!content) return;
-                                    
+
                                     try {
                                       setIsGenerating(true);
-                                      
+
                                       if (selectedModel.provider === 'gemini') {
                                         const aiContent = await generateNoteContent(content);
                                         setNewNote({ ...newNote, content: aiContent });
@@ -1993,12 +2079,12 @@ export default function Dashboard() {
                                           const decoder = new TextDecoder();
                                           let buffer = '';
                                           let accumulatedContent = '';
-                                          
+
                                           try {
                                             while (true) {
                                               const { done, value } = await reader.read();
                                               if (done) break;
-                                              
+
                                               buffer += decoder.decode(value, { stream: true });
 
                                               while (true) {
@@ -2042,8 +2128,8 @@ export default function Dashboard() {
                                   }}
                                   className={cn(
                                     "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
-                                    isDark 
-                                      ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
                                       : "hover:bg-black/10 text-black/60 hover:text-black"
                                   )}
                                 >
@@ -2074,8 +2160,8 @@ export default function Dashboard() {
                     }}
                     className={cn(
                               "px-4 py-2 rounded-lg transition-colors text-sm",
-                      isDark 
-                                ? "text-white/60 hover:bg-white/5" 
+                      isDark
+                                ? "text-white/60 hover:bg-white/5"
                                 : "text-black/60 hover:bg-black/5"
                     )}
                   >
@@ -2090,8 +2176,8 @@ export default function Dashboard() {
                             }
                     className={cn(
                               "px-4 py-2 rounded-lg transition-colors text-sm font-medium",
-                              isDark 
-                                ? "bg-white text-black hover:bg-white/90 disabled:opacity-50" 
+                              isDark
+                                ? "bg-white text-black hover:bg-white/90 disabled:opacity-50"
                                 : "bg-black text-white hover:bg-black/90 disabled:opacity-50"
                             )}
                           >
@@ -2132,8 +2218,8 @@ export default function Dashboard() {
                       }
                     }}
                     className={cn(
-                      isDark 
-                        ? "bg-black/20 border-white/5 hover:bg-black/30" 
+                      isDark
+                        ? "bg-black/20 border-white/5 hover:bg-black/30"
                         : "bg-white border-black/10 shadow-sm"
                     )}
                   />
@@ -2166,7 +2252,7 @@ export default function Dashboard() {
                   style={note.image_url ? { position: 'relative' } : {}}
                 >
                   {note.image_url && (
-                    <div 
+                    <div
                       className="absolute inset-0 bg-cover bg-center opacity-40"
                       style={{ backgroundImage: `url(${note.image_url})` }}
                     />
@@ -2199,8 +2285,8 @@ export default function Dashboard() {
                                 }}
                                 className={cn(
                             "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                  isDark
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
                               >
@@ -2213,8 +2299,8 @@ export default function Dashboard() {
                         }}
                         className={cn(
                             "p-1 rounded-lg transition-colors pointer-events-auto",
-                          isDark 
-                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                          isDark
+                            ? "hover:bg-white/10 text-white/60 hover:text-white"
                             : "hover:bg-black/10 text-black/60 hover:text-black"
                         )}
                       >
@@ -2227,8 +2313,8 @@ export default function Dashboard() {
                         }}
                         className={cn(
                             "p-1 rounded-lg transition-colors pointer-events-auto",
-                          isDark 
-                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                          isDark
+                            ? "hover:bg-white/10 text-white/60 hover:text-white"
                             : "hover:bg-black/10 text-black/60 hover:text-black"
                         )}
                       >
@@ -2305,7 +2391,7 @@ export default function Dashboard() {
                               )}>
                                 {website.title}
                               </h3>
-                              <a 
+                              <a
                                 href={website.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -2336,8 +2422,8 @@ export default function Dashboard() {
                                 }}
                                 className={cn(
                                   "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                  isDark
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
                               >
@@ -2350,8 +2436,8 @@ export default function Dashboard() {
                                 }}
                                 className={cn(
                                   "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                  isDark
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
                               >
@@ -2447,8 +2533,8 @@ export default function Dashboard() {
                                 }}
                                 className={cn(
                                   "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                  isDark
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
                               >
@@ -2461,8 +2547,8 @@ export default function Dashboard() {
                                 onClick={(e) => e.stopPropagation()}
                                 className={cn(
                                   "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                  isDark
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
                               >
@@ -2476,8 +2562,8 @@ export default function Dashboard() {
                                 }}
                                 className={cn(
                                   "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark 
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                                  isDark
+                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
                                     : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
                               >
@@ -2517,7 +2603,7 @@ export default function Dashboard() {
                       "text-lg mb-2",
                       isDark ? "text-white/60" : "text-black/60"
                     )}>
-                      {activeTab === 'all' 
+                      {activeTab === 'all'
                         ? 'No content yet'
                         : `No ${activeTab === 'note' ? 'notes' : activeTab === 'website' ? 'websites' : 'documents'} yet`}
                     </div>
@@ -2525,8 +2611,8 @@ export default function Dashboard() {
                       onClick={handleNewNote}
                       className={cn(
                         "text-sm px-4 py-2 rounded-lg transition-colors",
-                        isDark 
-                          ? "bg-white/10 hover:bg-white/20 text-white" 
+                        isDark
+                          ? "bg-white/10 hover:bg-white/20 text-white"
                           : "bg-black/10 hover:bg-black/20 text-black"
                       )}
                     >
@@ -2545,7 +2631,7 @@ export default function Dashboard() {
                   exit={{ opacity: 0 }}
                   className="fixed inset-0 z-50 flex items-center justify-center p-4"
                 >
-                  <div 
+                  <div
                     className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
                     onClick={() => setSelectedNote(null)}
                   />
@@ -2555,18 +2641,18 @@ export default function Dashboard() {
                     exit={{ scale: 0.95, opacity: 0 }}
                     className={cn(
                       "relative w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl z-50 flex flex-col",
-                      isDark 
-                        ? "bg-black/80 border border-white/10" 
+                      isDark
+                        ? "bg-black/80 border border-white/10"
                         : "bg-white/90 border border-black/5"
                     )}
                   >
                     {selectedNote.image_url && (
-                      <div 
+                      <div
                         className="absolute inset-0 bg-cover bg-center opacity-40 rounded-xl"
                         style={{ backgroundImage: `url(${selectedNote.image_url})`, pointerEvents: 'none' }}
                       />
                     )}
-                    
+
                     <div className="relative z-10 p-6 pb-3 border-b border-gray-200/10">
                       <div className="flex items-center justify-between">
                         <h2 className={cn(
@@ -2583,8 +2669,8 @@ export default function Dashboard() {
                         }}
                         className={cn(
                               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors",
-                          isDark 
-                                ? "bg-white/10 hover:bg-white/20 text-white" 
+                          isDark
+                                ? "bg-white/10 hover:bg-white/20 text-white"
                                 : "bg-black/10 hover:bg-black/20 text-black"
                         )}
                       >
@@ -2595,8 +2681,8 @@ export default function Dashboard() {
                         onClick={() => setSelectedNote(null)}
                         className={cn(
                           "p-2 rounded-lg transition-colors",
-                          isDark 
-                            ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                          isDark
+                            ? "hover:bg-white/10 text-white/60 hover:text-white"
                             : "hover:bg-black/10 text-black/60 hover:text-black"
                         )}
                       >
@@ -2604,7 +2690,7 @@ export default function Dashboard() {
                       </button>
                         </div>
                     </div>
-                    
+
                       <div className="flex items-center gap-2 text-sm mt-2">
                         <Calendar className="w-4 h-4" />
                         <span className={cn(
@@ -2653,7 +2739,7 @@ export default function Dashboard() {
                     exit={{ opacity: 0 }}
                     className="fixed inset-0 z-50 flex items-center justify-center p-4"
                   >
-                    <div 
+                    <div
                     className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
                       onClick={() => setSelectedDocument(null)}
                     />
@@ -2663,8 +2749,8 @@ export default function Dashboard() {
                       exit={{ scale: 0.95, opacity: 0 }}
                       className={cn(
                       "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
-                        isDark 
-                          ? "bg-black/80 border border-white/10" 
+                        isDark
+                          ? "bg-black/80 border border-white/10"
                           : "bg-white/90 border border-black/5"
                       )}
                     >
@@ -2676,8 +2762,8 @@ export default function Dashboard() {
                           rel="noopener noreferrer"
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            isDark
+                              ? "hover:bg-white/10 text-white/60 hover:text-white"
                               : "hover:bg-black/10 text-black/60 hover:text-black"
                           )}
                         >
@@ -2687,15 +2773,15 @@ export default function Dashboard() {
                           onClick={() => setSelectedDocument(null)}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            isDark
+                              ? "hover:bg-white/10 text-white/60 hover:text-white"
                               : "hover:bg-black/10 text-black/60 hover:text-black"
                           )}
                         >
                           <X className="w-5 h-5" />
                         </button>
                       </div>
-                      
+
                       <div className="mb-6">
                         <h2 className={cn(
                           "text-2xl font-semibold mb-2",
@@ -2746,8 +2832,8 @@ export default function Dashboard() {
                             download={selectedDocument.title}
                             className={cn(
                               "text-sm px-4 py-2 rounded-lg transition-colors",
-                              isDark 
-                                ? "bg-white/10 hover:bg-white/20" 
+                              isDark
+                                ? "bg-white/10 hover:bg-white/20"
                                 : "bg-black/10 hover:bg-black/20"
                             )}
                           >
@@ -2799,7 +2885,7 @@ export default function Dashboard() {
                     exit={{ opacity: 0 }}
                     className="fixed inset-0 z-50 flex items-center justify-center p-4"
                   >
-                    <div 
+                    <div
                     className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
                       onClick={() => setSelectedWebsite(null)}
                     />
@@ -2809,8 +2895,8 @@ export default function Dashboard() {
                       exit={{ scale: 0.95, opacity: 0 }}
                       className={cn(
                       "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
-                        isDark 
-                          ? "bg-black/80 border border-white/10" 
+                        isDark
+                          ? "bg-black/80 border border-white/10"
                           : "bg-white/90 border border-black/5"
                       )}
                     >
@@ -2821,8 +2907,8 @@ export default function Dashboard() {
                           rel="noopener noreferrer"
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            isDark
+                              ? "hover:bg-white/10 text-white/60 hover:text-white"
                               : "hover:bg-black/10 text-black/60 hover:text-black"
                           )}
                         >
@@ -2832,15 +2918,15 @@ export default function Dashboard() {
                           onClick={() => setSelectedWebsite(null)}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            isDark 
-                              ? "hover:bg-white/10 text-white/60 hover:text-white" 
+                            isDark
+                              ? "hover:bg-white/10 text-white/60 hover:text-white"
                               : "hover:bg-black/10 text-black/60 hover:text-black"
                           )}
                         >
                           <X className="w-5 h-5" />
                         </button>
                       </div>
-                      
+
                       <div className="mb-6">
                         <h2 className={cn(
                           "text-2xl font-semibold mb-2",
@@ -2848,7 +2934,7 @@ export default function Dashboard() {
                         )}>
                           {selectedWebsite.title}
                         </h2>
-                        <a 
+                        <a
                           href={selectedWebsite.url}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -2915,8 +3001,8 @@ export default function Dashboard() {
                           rel="noopener noreferrer"
                           className={cn(
                             "inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-colors",
-                            isDark 
-                              ? "bg-white/10 hover:bg-white/20 text-white" 
+                            isDark
+                              ? "bg-white/10 hover:bg-white/20 text-white"
                               : "bg-black/10 hover:bg-black/20 text-black"
                           )}
                         >
@@ -2942,7 +3028,7 @@ export default function Dashboard() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div 
+            <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setIsCreatingSpace(false)}
             />
@@ -2952,8 +3038,8 @@ export default function Dashboard() {
               exit={{ scale: 0.95, opacity: 0 }}
               className={cn(
                 "relative w-full max-w-sm rounded-xl p-6 shadow-2xl",
-                isDark 
-                  ? "bg-black/80 border border-white/10" 
+                isDark
+                  ? "bg-black/80 border border-white/10"
                   : "bg-white/90 border border-black/5"
               )}
             >
@@ -2978,8 +3064,8 @@ export default function Dashboard() {
                     placeholder="Enter space name"
                     className={cn(
                       "w-full px-3 py-2 rounded-lg border",
-                      isDark 
-                        ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" 
+                      isDark
+                        ? "bg-white/5 border-white/10 text-white placeholder:text-white/30"
                         : "bg-black/5 border-black/10 text-black placeholder:text-black/30"
                     )}
                   />
@@ -3019,8 +3105,8 @@ export default function Dashboard() {
                     onClick={() => setIsCreatingSpace(false)}
                     className={cn(
                       "px-4 py-2 rounded-lg",
-                      isDark 
-                        ? "text-white/60 hover:text-white/90" 
+                      isDark
+                        ? "text-white/60 hover:text-white/90"
                         : "text-black/60 hover:text-black/90"
                     )}
                   >
@@ -3059,7 +3145,7 @@ export default function Dashboard() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div 
+            <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => {
                 setShowSpaceMenu(false);
@@ -3072,8 +3158,8 @@ export default function Dashboard() {
               exit={{ scale: 0.95, opacity: 0 }}
               className={cn(
                 "relative w-full max-w-sm rounded-xl p-6 shadow-2xl",
-                isDark 
-                  ? "bg-black/80 border border-white/10" 
+                isDark
+                  ? "bg-black/80 border border-white/10"
                   : "bg-white/90 border border-black/5"
               )}
             >
@@ -3109,8 +3195,8 @@ export default function Dashboard() {
                     }}
                     className={cn(
                       "px-4 py-2 rounded-lg",
-                      isDark 
-                        ? "text-white/60 hover:text-white/90" 
+                      isDark
+                        ? "text-white/60 hover:text-white/90"
                         : "text-black/60 hover:text-black/90"
                     )}
                   >
@@ -3124,4 +3210,4 @@ export default function Dashboard() {
       </AnimatePresence>
     </div>
   )
-} 
+}

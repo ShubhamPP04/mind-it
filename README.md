@@ -1,4 +1,4 @@
-# Mind-It: Personal Knowledge Management & AI Assistant
+# Mind IT: Your Digital Knowledge Hub
 
 Mind-It is a modern knowledge management application built with Next.js and Supabase that helps you organize your thoughts, notes, and research with AI assistance. It features a space-based organization system, rich text editing, and an integrated AI chat assistant.
 
