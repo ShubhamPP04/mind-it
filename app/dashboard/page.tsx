@@ -2143,11 +2143,12 @@ export default function Dashboard() {
                         )}
 
                         {isAIEnabled && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-end w-full sm:justify-start">
                             <ModelSelector
                               selectedModel={selectedModel}
                               onModelChange={setSelectedModel}
                               isDark={isDark}
+                              openRight={true}
                             />
                           </div>
                         )}

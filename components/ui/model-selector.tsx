@@ -76,7 +76,7 @@ interface ModelSelectorProps {
   isDark?: boolean;
 }
 
-export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSelectorProps) {
+export function ModelSelector({ selectedModel, onModelChange, isDark, openRight = false }: ModelSelectorProps & { openRight?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -144,7 +144,9 @@ export function ModelSelector({ selectedModel, onModelChange, isDark }: ModelSel
               "absolute mt-1.5 rounded-xl shadow-xl overflow-hidden z-50 backdrop-blur-sm", // Responsive dropdown
               isMobile
                 ? "top-full right-0 w-[280px] max-w-[95vw]"
-                : "top-full left-0 w-[320px]",
+                : openRight
+                  ? "top-full right-0 w-[320px]"
+                  : "top-full left-0 w-[320px]",
               isDark
                 ? "bg-black/95 border border-white/15 shadow-purple-500/10"
                 : "bg-white/95 border border-black/15 shadow-purple-500/5"
