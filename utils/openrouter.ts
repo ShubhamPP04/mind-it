@@ -54,12 +54,12 @@ function parseConversationHistory(prompt: string) {
   return messages;
 }
 
-export async function generateOpenRouterContent(modelName: string, prompt: string, webSearchEnabled: boolean = false) {
+export async function generateOpenRouterContent(modelName: string, prompt: string, exaSearchEnabled: boolean = false, exaSearchResults: any[] = []) {
   try {
-    // If web search is enabled, append ':online' to the model name to use OpenRouter's web search
-    const model = webSearchEnabled ? `${modelName}:online` : modelName;
-    
-    const systemPrompt = `You are a helpful AI assistant with access to the user's saved content (notes, websites, and documents). When answering questions, use the provided content as context and cite your sources.
+    // We don't need to modify the model name for Exa search since we handle it separately
+    const model = modelName;
+
+    let systemPrompt = `You are a helpful AI assistant with access to the user's saved content (notes, websites, and documents). When answering questions, use the provided content as context and cite your sources.
 
 If the input contains saved content (indicated by [NOTE], [WEBSITE], or [DOCUMENT] tags), use that information to provide a more accurate and contextual response. Always reference the sources you used in your response.
 
@@ -71,7 +71,26 @@ Guidelines:
 - Format 2-3 important points as bold using **bold text**
 - Keep paragraphs short and focused
 - Use your own words while accurately representing the source material
-- When citing sources, mention them naturally in your response${webSearchEnabled ? '\n- For web search results, cite the source with markdown links using the website domain name (e.g., [example.com](https://example.com))' : ''}`;
+- When citing sources, mention them naturally in your response${exaSearchEnabled ? '\n- For Exa search results, cite the source with markdown links using the website domain name (e.g., [example.com](https://example.com))' : ''}`;
+
+    // Add Exa search results to the prompt if available
+    if (exaSearchEnabled && exaSearchResults && exaSearchResults.length > 0) {
+      // Append search results to the system prompt
+      systemPrompt += '\n\nHere are web search results that may be helpful for answering the query:\n';
+
+      exaSearchResults.forEach((result, index) => {
+        const domain = new URL(result.link).hostname.replace('www.', '');
+        systemPrompt += `\n[SEARCH RESULT ${index + 1}] ${result.title}\nURL: ${result.link} (${domain})\n${result.snippet || ''}\n`;
+
+        // If we have full content for the first result, include a portion of it
+        if (index === 0 && result.fullContent) {
+          const contentPreview = result.fullContent.substring(0, 1000) + (result.fullContent.length > 1000 ? '...' : '');
+          systemPrompt += `\nContent preview:\n${contentPreview}\n`;
+        }
+      });
+
+      systemPrompt += '\n\nYou MUST incorporate information from these search results in your response when relevant to the query. Always cite sources by mentioning the website name or using markdown links.';
+    }
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

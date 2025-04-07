@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
-import { Send, Bot, User, X, ChevronLeft, ExternalLink, History, PlusCircle, MessagesSquare, Copy, RefreshCw, Trash2, Globe } from 'lucide-react'
+import { Send, Bot, User, X, ChevronLeft, ExternalLink, History, PlusCircle, MessagesSquare, Copy, RefreshCw, Trash2, Globe, Search } from 'lucide-react'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
 import { ChatGenerationAnimation } from '@/components/ui/chat-generation-animation'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { createClient } from '@/utils/supabase/client'
 import { Navbar } from "@/app/components/ui/navbar"
+import { ExaSearchResults } from "@/components/ui/exa-search-results"
 
 interface Message {
   role: 'user' | 'assistant'
@@ -26,6 +27,14 @@ interface Message {
     url?: string
     content: string
     space_id: string | null
+  }>
+  exaSearchResults?: Array<{
+    title: string
+    link: string
+    snippet: string
+    publishedDate?: string
+    source?: string
+    fullContent?: string
   }>
 }
 
@@ -71,8 +80,9 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [showConversations, setShowConversations] = useState(false)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  const [exaSearchEnabled, setExaSearchEnabled] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [isExaApiConfigured, setIsExaApiConfigured] = useState(true) // Default to true, will check in useEffect
   const [userContent, setUserContent] = useState<{
     notes: Note[]
     websites: Website[]
@@ -100,12 +110,30 @@ export default function ChatPage() {
     setMounted(true)
   }, [])
 
-  // Disable web search when switching to Gemini models
+  // Check if Exa API key is configured
   useEffect(() => {
-    if (selectedModel.provider === 'gemini' && webSearchEnabled) {
-      setWebSearchEnabled(false)
+    const checkExaApiKey = async () => {
+      try {
+        const response = await fetch('/api/exa-check', {
+          method: 'GET',
+        })
+        const data = await response.json()
+        setIsExaApiConfigured(data.configured)
+      } catch (error) {
+        console.error('Error checking Exa API key:', error)
+        setIsExaApiConfigured(false)
+      }
     }
-  }, [selectedModel, webSearchEnabled])
+
+    checkExaApiKey()
+  }, [])
+
+  // Disable Exa search when switching to Gemini models
+  useEffect(() => {
+    if (selectedModel.provider === 'gemini' && exaSearchEnabled) {
+      setExaSearchEnabled(false)
+    }
+  }, [selectedModel, exaSearchEnabled])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -445,7 +473,7 @@ export default function ChatPage() {
     }
 
     setIsGenerating(true)
-    if (webSearchEnabled) {
+    if (exaSearchEnabled) {
       setIsSearching(true)
     }
 
@@ -474,6 +502,48 @@ export default function ChatPage() {
         contextPrompt = userMessage;
       }
 
+      // Perform Exa search if enabled, API key is configured, and using OpenRouter model
+      let exaSearchResults = [];
+      if (exaSearchEnabled && isExaApiConfigured && selectedModel.provider === 'openrouter') {
+        try {
+          console.log('Performing Exa search for:', userMessage);
+          const searchResponse = await fetch('/api/exa-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: userMessage, numResults: 5 })
+          });
+
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json();
+            exaSearchResults = searchData.results || [];
+            console.log('Exa search results:', exaSearchResults);
+
+            // Fetch content for the first result if available
+            if (exaSearchResults.length > 0) {
+              try {
+                const contentResponse = await fetch('/api/fetch-content', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: exaSearchResults[0].link })
+                });
+
+                if (contentResponse.ok) {
+                  const contentData = await contentResponse.json();
+                  if (contentData.content) {
+                    // Add the fetched content to the first result
+                    exaSearchResults[0].fullContent = contentData.content;
+                  }
+                }
+              } catch (error) {
+                console.error('Error fetching content:', error);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error performing Exa search:', error);
+        }
+      }
+
       if (selectedModel.provider === 'gemini') {
         const response = await generateNoteContent(contextPrompt)
         const assistantMsg: Message = {
@@ -486,20 +556,22 @@ export default function ChatPage() {
         setMessages(prev => [...prev, assistantMsg])
         await saveMessage(assistantMsg, conversationId)
       } else {
-        // For OpenRouter models, pass the webSearchEnabled flag
+        // For OpenRouter models, pass the exaSearchEnabled flag and search results
         const response = await generateOpenRouterContent(
-          selectedModel.name, 
+          selectedModel.name,
           contextPrompt,
-          webSearchEnabled
+          exaSearchEnabled,
+          exaSearchResults
         )
-        
+
         setIsSearching(false)
-        
+
         if (typeof response === 'string') {
           const assistantMsg: Message = {
             role: 'assistant',
             content: response,
-            sources: relevantSources.length > 0 ? relevantSources : undefined
+            sources: relevantSources.length > 0 ? relevantSources : undefined,
+            exaSearchResults: exaSearchEnabled && exaSearchResults?.length > 0 ? exaSearchResults : undefined
           }
 
           setMessages(prev => [...prev, assistantMsg])
@@ -540,11 +612,13 @@ export default function ChatPage() {
                         if (newMessages[newMessages.length - 1]?.role === 'assistant') {
                           newMessages[newMessages.length - 1].content = accumulatedContent
                           newMessages[newMessages.length - 1].sources = relevantSources.length > 0 ? relevantSources : undefined
+                          newMessages[newMessages.length - 1].exaSearchResults = exaSearchEnabled && exaSearchResults?.length > 0 ? exaSearchResults : undefined
                         } else {
                           newMessages.push({
                             role: 'assistant',
                             content: accumulatedContent,
-                            sources: relevantSources.length > 0 ? relevantSources : undefined
+                            sources: relevantSources.length > 0 ? relevantSources : undefined,
+                            exaSearchResults: exaSearchEnabled && exaSearchResults?.length > 0 ? exaSearchResults : undefined
                           })
                         }
                         return newMessages
@@ -787,7 +861,7 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto pt-20 pb-36 sm:pb-40 bg-gradient-to-b from-transparent">
+      <div className="flex-1 overflow-y-auto pt-20 pb-28 sm:pb-32 bg-gradient-to-b from-transparent">
         <div className="max-w-4xl mx-auto px-3 sm:px-4">
           <div className="space-y-5 sm:space-y-7">
             <AnimatePresence initial={false} mode="sync">
@@ -995,8 +1069,8 @@ export default function ChatPage() {
                       </ReactMarkdown>
                     </div>
 
-                    {/* Sources */}
-                    {message.sources && message.sources.length > 0 && (
+                    {/* Sources and Exa Search Results */}
+                    {(message.sources && message.sources.length > 0 || message.exaSearchResults && message.exaSearchResults.length > 0) && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1006,20 +1080,23 @@ export default function ChatPage() {
                           isDark ? "border-white/10" : "border-black/10"
                         )}
                       >
-                        <div className={cn(
-                          "text-xs font-medium mb-2 flex items-center gap-1.5",
-                          isDark ? "text-white/60" : "text-black/60"
-                        )}>
-                          <div className={cn(
-                            "w-4 h-4 rounded-full flex items-center justify-center",
-                            isDark ? "bg-blue-500/20" : "bg-blue-500/10"
-                          )}>
-                            <span className="text-[10px]">{message.sources.length}</span>
-                          </div>
-                          <span>Sources used to generate this response:</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 sm:gap-2.5">
-                          {message.sources.map((source, idx) => (
+                        {/* Sources header */}
+                        {message.sources && message.sources.length > 0 && (
+                          <div className="space-y-2">
+                            <div className={cn(
+                              "text-xs font-medium mb-2 flex items-center gap-1.5",
+                              isDark ? "text-white/60" : "text-black/60"
+                            )}>
+                              <div className={cn(
+                                "w-4 h-4 rounded-full flex items-center justify-center",
+                                isDark ? "bg-blue-500/20" : "bg-blue-500/10"
+                              )}>
+                                <span className="text-[10px]">{message.sources.length}</span>
+                              </div>
+                              <span>Sources used to generate this response:</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 sm:gap-2.5">
+                              {message.sources.map((source, idx) => (
                             <motion.button
                               key={source.id}
                               initial={{ opacity: 0, scale: 0.9 }}
@@ -1074,8 +1151,52 @@ export default function ChatPage() {
                                 <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5 opacity-70" />
                               )}
                             </motion.button>
-                          ))}
-                        </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Exa Search Results */}
+                        {message.exaSearchResults && message.exaSearchResults.length > 0 && (
+                          <div className="space-y-2 mt-4">
+                            <div className="flex items-center gap-1.5 text-xs font-medium">
+                              <Search className="w-3.5 h-3.5" />
+                              <span>Exa Search Results</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 sm:gap-2.5">
+                              {message.exaSearchResults.map((result, idx) => (
+                                <motion.button
+                                  key={`search-${idx}`}
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: 0.3 + (idx * 0.1), duration: 0.2 }}
+                                  onClick={() => window.open(result.link, '_blank')}
+                                  className={cn(
+                                    "flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-md text-xs transition-all",
+                                    "border shadow-sm hover:shadow-md hover:-translate-y-0.5",
+                                    isDark
+                                      ? "bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-300"
+                                      : "bg-blue-500/5 hover:bg-blue-500/10 border-blue-500/20 text-blue-700"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
+                                    isDark ? "bg-blue-500/20" : "bg-blue-500/10"
+                                  )}>
+                                    <Globe className="w-3 h-3" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium truncate max-w-[150px]">{result.title}</span>
+                                    {result.source && (
+                                      <span className="text-[10px] opacity-70 truncate max-w-[150px]">{result.source}</span>
+                                    )}
+                                  </div>
+                                  <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5 opacity-70" />
+                                </motion.button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </motion.div>
@@ -1120,43 +1241,28 @@ export default function ChatPage() {
 
       {/* Input - With Web Search Toggle */}
       <div className={cn(
-        "fixed bottom-0 left-0 right-0 border-t backdrop-blur-md pb-6 sm:pb-8",
+        "fixed bottom-0 left-0 right-0 border-t backdrop-blur-md pb-3 sm:pb-4",
         isDark
           ? "bg-gradient-to-t from-zinc-900/95 via-zinc-900/90 to-zinc-900/80 border-zinc-800/50"
           : "bg-gradient-to-t from-white/95 via-white/90 to-white/80 border-zinc-200/50"
       )}>
         <form
           onSubmit={handleSubmit}
-          className="max-w-2xl mx-auto px-3 sm:px-4 pt-3 sm:pt-4"
+          className="max-w-2xl mx-auto px-2 sm:px-3 pt-2 sm:pt-3"
         >
           <div className="relative">
             <div className={cn(
-              "flex items-center gap-2 mb-2",
-              input.length > 0 ? "opacity-100 h-8" : "opacity-100 h-8"
+              "flex items-center gap-1.5 mb-1.5",
+              input.length > 0 ? "opacity-100 h-6" : "opacity-100 h-6"
             )}>
-              {/* Web Search Toggle Button - Only show for OpenRouter models */}
-              {selectedModel.provider === 'openrouter' && (
-                <button
-                  type="button"
-                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                  className={cn(
-                    "flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors",
-                    webSearchEnabled 
-                      ? (isDark ? "bg-blue-600/80 text-white" : "bg-blue-500/80 text-white") 
-                      : (isDark ? "bg-white/5 text-white/70" : "bg-black/5 text-black/70")
-                  )}
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Web Search</span>
-                </button>
-              )}
+              {/* Exa Search Toggle Button removed */}
 
               {input.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setInput('')}
                   className={cn(
-                    "text-xs px-2 py-1 rounded-md transition-colors",
+                    "text-xs px-1.5 py-0.5 rounded-md transition-colors",
                     isDark
                       ? "bg-white/5 hover:bg-white/10 text-white/70"
                       : "bg-black/5 hover:bg-black/10 text-black/70"
@@ -1166,10 +1272,10 @@ export default function ChatPage() {
                 </button>
               )}
             </div>
-            
+
             {/* Rest of the input box */}
             <div className={cn(
-              "relative rounded-full border shadow-lg overflow-hidden max-w-full mx-auto transition-all duration-200",
+              "relative rounded-full border shadow-md overflow-hidden max-w-full mx-auto transition-all duration-200",
               isDark
                 ? "bg-zinc-800/80 border-white/10 hover:border-white/20 hover:bg-zinc-800/90"
                 : "bg-white/80 border-black/10 hover:border-black/20 hover:bg-white/90",
@@ -1184,24 +1290,24 @@ export default function ChatPage() {
                 rows={1}
                 disabled={isGenerating}
                 className={cn(
-                  "w-full px-4 py-3 sm:px-5 sm:py-3.5 pr-12 sm:pr-14 bg-transparent outline-none resize-none",
-                  "text-sm sm:text-base leading-relaxed",
+                  "w-full px-3 py-2 sm:px-4 sm:py-2.5 pr-10 sm:pr-12 bg-transparent outline-none resize-none",
+                  "text-sm leading-relaxed",
                   "placeholder:text-muted-foreground transition-all duration-200",
                   isDark
                     ? "placeholder:text-white/40 focus:placeholder:text-white/50"
                     : "placeholder:text-black/40 focus:placeholder:text-black/50"
                 )}
                 style={{
-                  minHeight: '56px',
-                  maxHeight: '120px'
+                  minHeight: '42px',
+                  maxHeight: '100px'
                 }}
               />
-              <div className="absolute right-2 sm:right-3 bottom-0 top-0 flex items-center justify-center">
+              <div className="absolute right-1.5 sm:right-2 bottom-0 top-0 flex items-center justify-center">
                 <button
                   type="submit"
                   disabled={!input.trim() || isGenerating}
                   className={cn(
-                    "p-2 rounded-full transition-all duration-200 shadow-sm",
+                    "p-1.5 rounded-full transition-all duration-200 shadow-sm",
                     !input.trim()
                       ? (isDark ? "text-white/30" : "text-black/30")
                       : (isDark
@@ -1215,9 +1321,9 @@ export default function ChatPage() {
                 </button>
               </div>
             </div>
-            
-            {/* Bottom info area with AI model name and web search indicator */}
-            <div className="flex justify-between items-center mt-2.5 text-xs">
+
+            {/* Bottom info area with AI model name */}
+            <div className="flex justify-between items-center mt-1.5 text-xs">
               <div className={cn(
                 "text-xs",
                 isDark ? "text-white/60" : "text-black/60"
@@ -1234,17 +1340,33 @@ export default function ChatPage() {
                         isDark ? "bg-purple-400/80" : "bg-purple-500/80"
                       )} />
                     </div>
-                    <span>AI is thinking{isSearching ? ' and searching the web' : ''}...</span>
+                    <span>AI is thinking{isSearching ? ' and searching with Exa' : ''}...</span>
                   </div>
                 ) : (
                   <div>
                     {selectedModel.provider === 'gemini' ? 'Google Gemini' : 'OpenRouter'}
-                    {webSearchEnabled && selectedModel.provider === 'openrouter' && ' + Web Search'}
+                    {/* Exa search indicator removed */}
                   </div>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-2">
+                {selectedModel.provider === 'openrouter' && (
+                  <button
+                    type="button"
+                    onClick={() => setExaSearchEnabled(!exaSearchEnabled)}
+                    className={cn(
+                      "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-colors",
+                      exaSearchEnabled
+                        ? (isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-500/20 text-blue-700 border border-blue-500/30")
+                        : (isDark ? "bg-zinc-800/50 text-white/50 border border-white/10 hover:border-white/20" : "bg-zinc-100/80 text-black/50 border border-black/10 hover:border-black/20")
+                    )}
+                    title={exaSearchEnabled ? "Disable Exa search" : "Enable Exa search"}
+                  >
+                    <Globe className="w-3 h-3" />
+                    <span>{exaSearchEnabled ? "Exa search on" : "Exa search off"}</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1261,7 +1383,7 @@ export default function ChatPage() {
                     inputRef.current?.focus();
                   }}
                   className={cn(
-                    "text-xs px-2 py-1 rounded-md transition-colors",
+                    "text-xs px-1.5 py-0.5 rounded-md transition-colors",
                     isDark
                       ? "bg-white/5 hover:bg-white/10 text-white/70"
                       : "bg-black/5 hover:bg-black/10 text-black/70"
