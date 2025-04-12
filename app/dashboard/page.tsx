@@ -102,11 +102,11 @@ export default function Dashboard() {
         }
       }
     }
-    // Default to Optimus Alpha if no stored model or error
+    // Default to Gemini 2.0 Flash if no stored model or error
     return {
-      provider: 'openrouter',
-      name: 'openrouter/optimus-alpha',
-      displayName: 'Optimus Alpha'
+      provider: 'gemini',
+      name: 'gemini-2.0-flash',
+      displayName: 'Gemini 2.0 Flash'
     }
   })
   const [spaces, setSpaces] = useState<Space[]>([])

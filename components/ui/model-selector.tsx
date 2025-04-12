@@ -243,10 +243,16 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
                       </div>
                       <div className="font-medium">{model.displayName}</div>
                       {model.name.includes('gemini-2.0') && (
-                        <span className={cn(
-                          "px-1.5 py-0.5 text-[10px] rounded-full",
-                          isDark ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-purple-500/10 text-purple-600 border border-purple-500/20"
-                        )}>Latest</span>
+                        <div className="flex gap-1">
+                          <span className={cn(
+                            "px-1.5 py-0.5 text-[10px] rounded-full",
+                            isDark ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-purple-500/10 text-purple-600 border border-purple-500/20"
+                          )}>Latest</span>
+                          <span className={cn(
+                            "px-1.5 py-0.5 text-[10px] rounded-full",
+                            isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"
+                          )}>Default</span>
+                        </div>
                       )}
                     </div>
                     {model.description && !isMobile && (
@@ -319,7 +325,7 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
                           isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
                         )}>Experimental</span>
                       )}
-                      {model.name.includes('optimus-alpha') && (
+                      {model.name.includes('gemini-2.0-flash') && (
                         <span className={cn(
                           "px-1.5 py-0.5 text-[10px] rounded-full",
                           isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"

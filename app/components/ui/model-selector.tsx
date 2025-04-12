@@ -15,11 +15,13 @@ interface ModelSelectorProps {
 }
 
 const models: Model[] = [
+  // Gemini models
   {
     provider: 'gemini',
     name: 'gemini-2.0-flash',
     displayName: 'Gemini 2.0 Flash'
   },
+  // OpenRouter models
   {
     provider: 'openrouter',
     name: 'openrouter/optimus-alpha',
@@ -95,7 +97,15 @@ export function ModelSelector({ selectedModel, onModelChange, isDark = false }: 
                   )
                 )}
               >
-                {model.displayName}
+                <div className="flex items-center justify-between">
+                  <span>{model.displayName}</span>
+                  {model.name === 'gemini-2.0-flash' && (
+                    <span className={cn(
+                      "px-1.5 py-0.5 text-[10px] rounded-full ml-2",
+                      isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"
+                    )}>Default</span>
+                  )}
+                </div>
               </button>
             ))}
           </div>
