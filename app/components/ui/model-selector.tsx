@@ -18,7 +18,7 @@ const models: Model[] = [
   {
     provider: 'gemini',
     name: 'gemini-2.0-flash',
-    displayName: 'Gemini 2.0'
+    displayName: 'Gemini 2.0 Flash'
   },
   {
     provider: 'openrouter',
