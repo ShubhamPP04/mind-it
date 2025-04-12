@@ -22,6 +22,12 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
+    name: 'openrouter/optimus-alpha',
+    displayName: 'Optimus Alpha',
+    description: 'Powerful model with excellent reasoning and instruction following capabilities'
+  },
+  {
+    provider: 'openrouter',
     name: 'google/gemini-2.5-pro-exp-03-25:free',
     displayName: 'Gemini 2.5 Pro Exp',
     description: 'Latest experimental Gemini 2.5 Pro model with enhanced capabilities'
@@ -312,6 +318,12 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
                           "px-1.5 py-0.5 text-[10px] rounded-full",
                           isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
                         )}>Experimental</span>
+                      )}
+                      {model.name.includes('optimus-alpha') && (
+                        <span className={cn(
+                          "px-1.5 py-0.5 text-[10px] rounded-full",
+                          isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"
+                        )}>Default</span>
                       )}
                     </div>
                     {model.description && !isMobile && (

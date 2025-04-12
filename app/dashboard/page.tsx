@@ -90,10 +90,24 @@ export default function Dashboard() {
   const [isImageUploading, setIsImageUploading] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [imageOpacity, setImageOpacity] = useState<number>(0.4)
-  const [selectedModel, setSelectedModel] = useState<Model>({
-    provider: 'openrouter',
-    name: 'google/gemini-2.5-pro-exp-03-25:free',
-    displayName: 'Gemini 2.5 Pro Exp'
+  const [selectedModel, setSelectedModel] = useState<Model>(() => {
+    // Try to load the selected model from localStorage
+    if (typeof window !== 'undefined') {
+      const storedModel = localStorage.getItem('selectedModel')
+      if (storedModel) {
+        try {
+          return JSON.parse(storedModel) as Model
+        } catch (e) {
+          console.error('Error parsing stored model:', e)
+        }
+      }
+    }
+    // Default to Optimus Alpha if no stored model or error
+    return {
+      provider: 'openrouter',
+      name: 'openrouter/optimus-alpha',
+      displayName: 'Optimus Alpha'
+    }
   })
   const [spaces, setSpaces] = useState<Space[]>([])
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null)
@@ -170,6 +184,11 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('sidebarOpen', isSidebarOpen.toString())
   }, [isSidebarOpen])
+
+  // Save selected model to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('selectedModel', JSON.stringify(selectedModel))
+  }, [selectedModel])
 
   // Initialize the app
   useEffect(() => {
@@ -1510,17 +1529,17 @@ export default function Dashboard() {
     // Filter notes
     const searchFilterNotes = notes.filter(note => {
       // Search filtering
-      const matchesSearch = searchQuery === '' || 
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = searchQuery === '' ||
+        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         note.content.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Date filtering
       let matchesDate = true;
       if (filterOptions.dateRange !== 'all') {
         const noteDate = new Date(note.created_at);
         const today = new Date();
         const todayStart = new Date(today.setHours(0, 0, 0, 0));
-        
+
         if (filterOptions.dateRange === 'today') {
           matchesDate = noteDate >= todayStart;
         } else if (filterOptions.dateRange === 'week') {
@@ -1533,7 +1552,7 @@ export default function Dashboard() {
           matchesDate = noteDate >= monthStart;
         }
       }
-      
+
       return matchesSearch && matchesDate;
     });
 
@@ -1546,24 +1565,24 @@ export default function Dashboard() {
     } else if (filterOptions.sortBy === 'alphabetical') {
       sortedNotes.sort((a, b) => a.title.localeCompare(b.title));
     }
-    
+
     setFilteredNotes(sortedNotes);
 
     // Filter websites
     const searchFilterWebsites = websites.filter(website => {
       // Search filtering
-      const matchesSearch = searchQuery === '' || 
-        website.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = searchQuery === '' ||
+        website.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         website.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
         website.content.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Date filtering
       let matchesDate = true;
       if (filterOptions.dateRange !== 'all') {
         const websiteDate = new Date(website.created_at);
         const today = new Date();
         const todayStart = new Date(today.setHours(0, 0, 0, 0));
-        
+
         if (filterOptions.dateRange === 'today') {
           matchesDate = websiteDate >= todayStart;
         } else if (filterOptions.dateRange === 'week') {
@@ -1576,7 +1595,7 @@ export default function Dashboard() {
           matchesDate = websiteDate >= monthStart;
         }
       }
-      
+
       return matchesSearch && matchesDate;
     });
 
@@ -1589,23 +1608,23 @@ export default function Dashboard() {
     } else if (filterOptions.sortBy === 'alphabetical') {
       sortedWebsites.sort((a, b) => a.title.localeCompare(b.title));
     }
-    
+
     setFilteredWebsites(sortedWebsites);
 
     // Filter documents
     const searchFilterDocuments = documents.filter(document => {
       // Search filtering
-      const matchesSearch = searchQuery === '' || 
-        document.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = searchQuery === '' ||
+        document.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         document.content.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Date filtering
       let matchesDate = true;
       if (filterOptions.dateRange !== 'all') {
         const documentDate = new Date(document.created_at);
         const today = new Date();
         const todayStart = new Date(today.setHours(0, 0, 0, 0));
-        
+
         if (filterOptions.dateRange === 'today') {
           matchesDate = documentDate >= todayStart;
         } else if (filterOptions.dateRange === 'week') {
@@ -1618,7 +1637,7 @@ export default function Dashboard() {
           matchesDate = documentDate >= monthStart;
         }
       }
-      
+
       return matchesSearch && matchesDate;
     });
 
@@ -1631,7 +1650,7 @@ export default function Dashboard() {
     } else if (filterOptions.sortBy === 'alphabetical') {
       sortedDocuments.sort((a, b) => a.title.localeCompare(b.title));
     }
-    
+
     setFilteredDocuments(sortedDocuments);
   }, [notes, websites, documents, searchQuery, filterOptions]);
 
@@ -2383,9 +2402,9 @@ export default function Dashboard() {
                       )}
                     />
                   </div>
-                  
+
                   {/* Search and Filter */}
-                  <SearchAndFilter 
+                  <SearchAndFilter
                     onSearch={handleSearch}
                     onFilter={handleFilter}
                     isDark={isDark}
@@ -2396,26 +2415,26 @@ export default function Dashboard() {
                   {searchQuery.trim() !== '' && (
                     <div className={cn(
                       "text-center text-sm py-1.5 rounded-md border",
-                      isDark 
-                        ? "border-slate-700 bg-slate-800/60 text-white/60" 
+                      isDark
+                        ? "border-slate-700 bg-slate-800/60 text-white/60"
                         : "border-slate-200 bg-slate-50 text-slate-500"
                     )}>
                       <span className="font-medium text-xs">
                         Showing {
-                          activeTab === 'all' 
+                          activeTab === 'all'
                             ? filteredNotes.length + filteredWebsites.length + filteredDocuments.length
-                            : activeTab === 'note' 
-                              ? filteredNotes.length 
-                              : activeTab === 'website' 
-                                ? filteredWebsites.length 
+                            : activeTab === 'note'
+                              ? filteredNotes.length
+                              : activeTab === 'website'
+                                ? filteredWebsites.length
                                 : filteredDocuments.length
                         } result{
-                          (activeTab === 'all' 
+                          (activeTab === 'all'
                             ? filteredNotes.length + filteredWebsites.length + filteredDocuments.length
-                            : activeTab === 'note' 
-                              ? filteredNotes.length 
-                              : activeTab === 'website' 
-                                ? filteredWebsites.length 
+                            : activeTab === 'note'
+                              ? filteredNotes.length
+                              : activeTab === 'website'
+                                ? filteredWebsites.length
                                 : filteredDocuments.length) !== 1 ? 's' : ''
                         } for <span className={isDark ? "text-emerald-400" : "text-emerald-600"}>"{searchQuery}"</span>
                       </span>
@@ -2813,7 +2832,7 @@ export default function Dashboard() {
                           )}>
                             Try adjusting your search or filter criteria to find what you're looking for.
                           </p>
-                          <button 
+                          <button
                             onClick={() => {
                               setSearchQuery('');
                               setFilterOptions({

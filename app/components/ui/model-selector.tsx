@@ -22,6 +22,11 @@ const models: Model[] = [
   },
   {
     provider: 'openrouter',
+    name: 'openrouter/optimus-alpha',
+    displayName: 'Optimus Alpha'
+  },
+  {
+    provider: 'openrouter',
     name: 'google/gemini-2.5-pro-exp-03-25:free',
     displayName: 'Gemini 2.5 Pro Exp'
   },

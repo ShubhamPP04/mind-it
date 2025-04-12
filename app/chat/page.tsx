@@ -99,16 +99,35 @@ export default function ChatPage() {
   const currentSpaceId = searchParams.get('spaceId')
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === 'dark' : false
-  const [selectedModel, setSelectedModel] = useState<Model>({
-    provider: 'gemini',
-    name: 'gemini-2.0-flash',
-    displayName: 'Gemini 2.0 Flash'
+  const [selectedModel, setSelectedModel] = useState<Model>(() => {
+    // Try to load the selected model from localStorage
+    if (typeof window !== 'undefined') {
+      const storedModel = localStorage.getItem('selectedModel')
+      if (storedModel) {
+        try {
+          return JSON.parse(storedModel) as Model
+        } catch (e) {
+          console.error('Error parsing stored model:', e)
+        }
+      }
+    }
+    // Default to Optimus Alpha if no stored model or error
+    return {
+      provider: 'openrouter',
+      name: 'openrouter/optimus-alpha',
+      displayName: 'Optimus Alpha'
+    }
   })
   const supabase = createClient()
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Save selected model to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('selectedModel', JSON.stringify(selectedModel))
+  }, [selectedModel])
 
   // Check if Exa API key is configured
   useEffect(() => {
