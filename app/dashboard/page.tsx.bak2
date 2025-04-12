@@ -1669,630 +1669,637 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="relative flex h-screen overflow-hidden">
+    <div className="relative flex flex-col h-screen overflow-hidden">
       <BackgroundPaths className="fixed inset-0 -z-20 pointer-events-none" isDark={isDark} />
-      <div className="flex w-full relative z-10">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:block">
-      <SpacesSidebar
-        spaces={spaces}
-        selectedSpace={selectedSpace}
-        onSpaceSelect={handleSpaceSelect}
-        onCreateSpace={handleCreateSpace}
-          onEditSpace={handleEditSpace}
-          onDeleteSpace={handleDeleteSpace}
-        isDark={isDark}
-        isOpen={isSidebarOpen}
-      />
-        </div>
-      <div className="flex-1 flex flex-col min-h-screen">
+      
+      {/* Main content wrapper */}
+      <div className="flex-1 flex flex-col z-10 relative">
         <Navbar
           isDark={isDark}
           onStartChat={handleStartChat}
           onSignOut={handleSignOut}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
-            email={email || undefined}
+          email={email || undefined}
         />
 
-          {/* Mobile Spaces Bar */}
-          <div className="md:hidden w-full overflow-x-auto sticky top-14 z-30 border-b px-2 py-2"
-            style={{
-              backgroundColor: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-              backdropFilter: 'blur(8px)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                {spaces.map((space) => (
-                  <button
-                    key={space.id}
-                    onClick={() => handleSpaceSelect(space)}
-                    onTouchStart={() => handleTouchStart(space)}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchMove={handleTouchEnd}
-                    onTouchCancel={handleTouchEnd}
-                    className={cn(
-                      "flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors whitespace-nowrap relative",
-                      isDark
-                        ? selectedSpace?.id === space.id
-                          ? "bg-white/10 text-white"
-                          : "text-white/60 hover:bg-white/5"
-                        : selectedSpace?.id === space.id
-                          ? "bg-black/10 text-black"
-                          : "text-black/60 hover:bg-black/5"
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {space.icon && (
-                        <div className={cn(
-                          "w-4 h-4",
-                          isDark
-                            ? selectedSpace?.id === space.id
-                              ? "text-white"
-                              : "text-white/60"
-                            : selectedSpace?.id === space.id
-                              ? "text-black"
-                              : "text-black/60"
-                        )}>
-                          {(() => {
-                            const IconComp = AVAILABLE_ICONS[space.icon];
-                            return IconComp ? <IconComp className="w-4 h-4" /> : null;
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-sm font-medium">{space.name}</span>
-                  </button>
-                ))}
-                <button
-                  onClick={() => {
-                    // Open create space modal directly
-                    setIsCreatingSpace(true);
-                    setNewSpaceName('');
-                    setSelectedIcon('hash');
-                  }}
-                  className={cn(
-                    "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors whitespace-nowrap flex-shrink-0",
-                    isDark
-                      ? "text-white/60 hover:bg-white/5 border border-white/10"
-                      : "text-black/60 hover:bg-black/5 border border-black/10"
-                  )}
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">New</span>
-                </button>
-              </div>
-            </div>
+        <div className="flex flex-1">
+          {/* Desktop Sidebar */}
+          <div className="hidden md:block">
+            <SpacesSidebar
+              spaces={spaces}
+              selectedSpace={selectedSpace}
+              onSpaceSelect={handleSpaceSelect}
+              onCreateSpace={handleCreateSpace}
+              onEditSpace={handleEditSpace}
+              onDeleteSpace={handleDeleteSpace}
+              isDark={isDark}
+              isOpen={isSidebarOpen}
+            />
           </div>
-
-          <main className="flex-1 overflow-auto p-4 md:pt-24 pt-16">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Notes Section */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className={cn(
-                  "text-2xl font-semibold",
-                  isDark ? "text-white/90" : "text-black/90"
-                )}>
-                  {selectedSpace ? selectedSpace.name : 'All Notes'}
-                </h2>
-                {selectedSpace && (
-                  <div
-                      className="px-2.5 py-1 rounded-full text-sm"
-                    style={{
-                        backgroundColor: `${selectedSpace.color}20`,  // Using space color with 20% opacity
-                        color: selectedSpace.color  // Using space color for text
-                    }}
-                  >
-                      <span className="font-medium">
-                      {notes.length} note{notes.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <ShimmerButton
-                onClick={handleNewNote}
-                shimmerColor={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"}
-                background={isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(240, 240, 240, 0.9)"}
-                shimmerDuration="2s"
-                className={cn(
-                  "group font-medium",
-                  isDark ? "hover:bg-white/10" : "hover:bg-black/10"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <PlusCircle className={cn(
-                    "w-4 h-4 transition-transform group-hover:scale-110",
-                    isDark ? "text-white/90" : "text-black"
-                  )} />
-                    <span className={isDark ? "text-white/90" : "text-black"}>Add Memory</span>
-                </div>
-              </ShimmerButton>
-            </div>
-
-            {/* New/Edit Note Form */}
-            {showNewNote && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                    "p-4 sm:p-6 rounded-xl border",
-                  isDark
-                    ? "bg-black/60 border-white/10"
-                    : "bg-white/60 border-black/5"
-                )}
-              >
-                    <div className="flex justify-between items-center mb-4 sm:mb-6">
-                      <h2 className="text-lg sm:text-xl font-semibold">Add Memory</h2>
+          
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Mobile Spaces Bar */}
+            <div className="md:hidden w-full overflow-x-auto sticky top-14 z-30 border-b px-2 py-2"
+              style={{
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(8px)',
+                borderColor: isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(226, 232, 240, 0.8)'
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar" style={{ scrollbarWidth: 'none' }}>
+                  {spaces.map((space) => (
                     <button
-                      onClick={() => {
-                        setShowNewNote(false)
-                        setEditingNote(null)
-                          setNewNote({ title: '', content: '', image_url: '' })
-                        setIsAIEnabled(false)
-                      }}
+                      key={space.id}
+                      onClick={() => handleSpaceSelect(space)}
+                      onTouchStart={() => handleTouchStart(space)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchEnd}
+                      onTouchCancel={handleTouchEnd}
                       className={cn(
-                        "p-2 rounded-lg hover:bg-black/5",
-                        isDark ? "text-white/60" : "text-black/60"
+                        "flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors whitespace-nowrap relative",
+                        isDark
+                          ? selectedSpace?.id === space.id
+                            ? "bg-white/10 text-white"
+                            : "text-white/60 hover:bg-white/5"
+                          : selectedSpace?.id === space.id
+                            ? "bg-black/10 text-black"
+                            : "text-black/60 hover:bg-black/5"
                       )}
                     >
-                      <X className="w-5 h-5" />
+                      <div className="flex items-center gap-1.5">
+                        {space.icon && (
+                          <div className={cn(
+                            "w-4 h-4",
+                            isDark
+                              ? selectedSpace?.id === space.id
+                                ? "text-white"
+                                : "text-white/60"
+                              : selectedSpace?.id === space.id
+                                ? "text-black"
+                                : "text-black/60"
+                          )}>
+                            {(() => {
+                              const IconComp = AVAILABLE_ICONS[space.icon];
+                              return IconComp ? <IconComp className="w-4 h-4" /> : null;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium">{space.name}</span>
                     </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      // Open create space modal directly
+                      setIsCreatingSpace(true);
+                      setNewSpaceName('');
+                      setSelectedIcon('hash');
+                    }}
+                    className={cn(
+                      "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors whitespace-nowrap flex-shrink-0",
+                      isDark
+                        ? "text-white/60 hover:bg-white/5 border border-white/10"
+                        : "text-black/60 hover:bg-black/5 border border-black/10"
+                    )}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">New</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              <main className="p-3 sm:p-4 md:pt-24 pt-16 pb-16 sm:pb-6">
+                <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+                  {/* Notes Section */}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h2 className={cn(
+                        "text-xl sm:text-2xl font-semibold",
+                        isDark ? "text-white/90" : "text-black/90"
+                      )}>
+                        {selectedSpace ? selectedSpace.name : 'All Notes'}
+                      </h2>
+                      {selectedSpace && (
+                        <div
+                          className="px-2.5 py-1 rounded-full text-xs sm:text-sm"
+                          style={{
+                            backgroundColor: `${selectedSpace.color}20`,
+                            color: selectedSpace.color
+                          }}
+                        >
+                          <span className="font-medium">
+                            {notes.length} note{notes.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <ShimmerButton
+                      onClick={handleNewNote}
+                      shimmerColor={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"}
+                      background={isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(240, 240, 240, 0.9)"}
+                      shimmerDuration="2s"
+                      className={cn(
+                        "group font-medium text-sm w-full sm:w-auto justify-center sm:justify-start",
+                        isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <PlusCircle className={cn(
+                          "w-4 h-4 transition-transform group-hover:scale-110",
+                          isDark ? "text-white/90" : "text-black"
+                        )} />
+                        <span className={isDark ? "text-white/90" : "text-black"}>Add Memory</span>
+                      </div>
+                    </ShimmerButton>
                   </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
-                    {/* Left Column - Options */}
-                      <div className="sm:col-span-4 space-y-3 sm:space-y-4">
-                      <button
-                        onClick={handleWebsiteClick}
-                        className={cn(
-                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
-                          isDark
-                            ? "border-white/10 hover:bg-white/5"
-                            : "border-black/10 hover:bg-black/5",
-                          activeTab === 'website' && (isDark ? "bg-white/5" : "bg-black/5")
-                        )}
-                      >
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          isDark ? "bg-white/5" : "bg-black/5"
-                        )}>
-                          <LinkIcon className="w-5 h-5" />
+                  {/* New/Edit Note Form */}
+                  {showNewNote && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={cn(
+                          "p-4 sm:p-6 rounded-xl border",
+                        isDark
+                          ? "bg-black/60 border-white/10"
+                          : "bg-white/60 border-black/5"
+                      )}
+                    >
+                          <div className="flex justify-between items-center mb-4 sm:mb-6">
+                            <h2 className="text-lg sm:text-xl font-semibold">Add Memory</h2>
+                          <button
+                            onClick={() => {
+                              setShowNewNote(false)
+                              setEditingNote(null)
+                                setNewNote({ title: '', content: '', image_url: '' })
+                              setIsAIEnabled(false)
+                            }}
+                            className={cn(
+                              "p-2 rounded-lg hover:bg-black/5",
+                              isDark ? "text-white/60" : "text-black/60"
+                            )}
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
                         </div>
-                        <div className="text-left">
-                          <div className="font-medium">Website</div>
-                          <div className="text-sm opacity-60">Add a website or tweet URL</div>
-                        </div>
-                      </button>
 
-                      <button
-                        onClick={handleNoteClick}
-                        className={cn(
-                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
-                          isDark
-                            ? "border-white/10 hover:bg-white/5"
-                            : "border-black/10 hover:bg-black/5",
-                          activeTab === 'note' && (isDark ? "bg-white/5" : "bg-black/5")
-                        )}
-                      >
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          isDark ? "bg-white/10" : "bg-black/10"
-                        )}>
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="text-left">
-                          <div className="font-medium">Note</div>
-                          <div className="text-sm opacity-60">Add a note or use the rich editor</div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={handleDocumentClick}
-                        className={cn(
-                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
-                          isDark
-                            ? "border-white/10 hover:bg-white/5"
-                            : "border-black/10 hover:bg-black/5",
-                          activeTab === 'document' && (isDark ? "bg-white/5" : "bg-black/5")
-                        )}
-                      >
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          isDark ? "bg-white/5" : "bg-black/5"
-                        )}>
-                          <File className="w-5 h-5" />
-                        </div>
-                        <div className="text-left">
-                          <div className="font-medium">Document</div>
-                          <div className="text-sm opacity-60">Upload a PDF or other document</div>
-                        </div>
-                      </button>
-                    </div>
-
-                      {/* Right Column - Content */}
-                      <div className="sm:col-span-8 space-y-4">
-                        {activeTab === 'website' && (
-                          <div className="space-y-3">
-                            <input
-                              type="url"
-                              value={websiteUrl}
-                              onChange={(e) => setWebsiteUrl(e.target.value)}
-                              placeholder="Enter website URL"
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
+                          {/* Left Column - Options */}
+                            <div className="sm:col-span-4 space-y-3 sm:space-y-4">
+                            <button
+                              onClick={handleWebsiteClick}
                               className={cn(
-                                "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
-                                isDark
-                                  ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
-                                  : "border-black/10 focus:border-black/20 placeholder:text-black/30"
-                              )}
-                            />
-                          </div>
-                        )}
-
-                        {activeTab === 'document' && (
-                          <div className="space-y-3">
-                            <div
-                                className={cn(
-                                "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
+                                  "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
                                 isDark
                                   ? "border-white/10 hover:bg-white/5"
-                                  : "border-black/10 hover:bg-black/5"
+                                  : "border-black/10 hover:bg-black/5",
+                                activeTab === 'website' && (isDark ? "bg-white/5" : "bg-black/5")
                               )}
-                              onClick={() => document.getElementById('document-upload')?.click()}
                             >
-                              <input
-                                type="file"
-                                id="document-upload"
-                                className="hidden"
-                                onChange={handleDocumentUpload}
-                                accept=".pdf,.doc,.docx,.txt"
-                              />
-                              <div className="flex flex-col items-center gap-2">
-                                <File className="w-8 h-8 opacity-50" />
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    {documentFile ? documentFile.name : 'Click to upload a document'}
-                                  </p>
-                                  <p className={cn(
-                                    "text-xs mt-1",
-                                    isDark ? "text-white/50" : "text-black/50"
-                                  )}>
-                                    PDF, DOC, DOCX, or TXT
-                                  </p>
-                            </div>
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDark ? "bg-white/5" : "bg-black/5"
+                              )}>
+                                <LinkIcon className="w-5 h-5" />
                               </div>
-                            </div>
-                          </div>
-                        )}
+                              <div className="text-left">
+                                <div className="font-medium">Website</div>
+                                <div className="text-sm opacity-60">Add a website or tweet URL</div>
+                              </div>
+                            </button>
 
-                        {activeTab === 'note' && (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                  <input
-                    type="text"
-                    value={newNote.title}
-                    onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
-                                placeholder="Title"
-                    className={cn(
-                                  "flex-1 px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
-                      isDark
-                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
-                                    : "border-black/10 focus:border-black/20 placeholder:text-black/30"
-                                )}
-                              />
-                              <button
-                      onClick={() => setIsAIEnabled(!isAIEnabled)}
-                      className={cn(
-                                  "ml-2 p-2 rounded-lg transition-colors flex items-center gap-2",
-                      isDark
-                                    ? isAIEnabled ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
-                                    : isAIEnabled ? "bg-black/10 text-black" : "text-black/60 hover:text-black hover:bg-black/5"
-                                )}
-                              >
-                                <Sparkles className="w-4 h-4" />
-                                <span className="hidden sm:inline">AI Mode</span>
-                    </button>
-                      </div>
-
-                            {/* Image upload section */}
-                            <div
+                            <button
+                              onClick={handleNoteClick}
                               className={cn(
-                                "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
-                                newNote.image_url
-                                  ? "bg-cover bg-center relative"
-                                  : isDark
-                                    ? "border-white/10 hover:bg-white/5"
-                                    : "border-black/10 hover:bg-black/5",
-                                "group"
+                                  "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                                isDark
+                                  ? "border-white/10 hover:bg-white/5"
+                                  : "border-black/10 hover:bg-black/5",
+                                activeTab === 'note' && (isDark ? "bg-white/5" : "bg-black/5")
                               )}
-                              style={newNote.image_url ? {
-                                backgroundImage: `url(${newNote.image_url})`,
-                                backgroundSize: 'cover'
-                              } : {}}
-                              onClick={() => document.getElementById('note-image-upload')?.click()}
                             >
-                              <input
-                                type="file"
-                                id="note-image-upload"
-                                className="hidden"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0]
-                                  if (!file) return
-
-                                  // Check if it's an image
-                                  if (!file.type.startsWith('image/')) {
-                                    setError('Please upload an image file (JPEG, PNG, GIF)')
-                                      return
-                                    }
-
-                                  setIsImageUploading(true)
-                                  try {
-                                    const imageUrl = await handleImageUpload(file)
-                                    setNewNote(prev => ({ ...prev, image_url: imageUrl }))
-                                    setError(null)
-                                  } catch (error) {
-                                    console.error('Error uploading image:', error)
-                                    setError(error instanceof Error ? error.message : 'Failed to upload image. Please try again.')
-                                  } finally {
-                                    setIsImageUploading(false)
-                                  }
-                                }}
-                                accept="image/*"
-                              />
-                              <div className="flex flex-col items-center gap-2 z-10 relative">
-                                {isImageUploading ? (
-                                  <div className={cn(
-                                    "p-2 rounded-lg",
-                                    isDark ? "bg-black/50" : "bg-white/50"
-                                  )}>
-                                    <div className="flex items-center gap-2">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
-                                      <span className={cn(
-                                        "text-sm font-medium",
-                                        isDark ? "text-white" : "text-black"
-                                      )}>
-                                        Uploading...
-                                      </span>
-                                    </div>
-                                  </div>
-                                ) : newNote.image_url ? (
-                                  <div className={cn(
-                                    "p-2 rounded-lg",
-                                    isDark ? "bg-black/50" : "bg-white/50"
-                                  )}>
-                                    <div className={cn(
-                                      "text-sm font-medium",
-                                      isDark ? "text-white" : "text-black"
-                                    )}>
-                                      Change Background Image
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className={cn(
-                                      "p-2 rounded-full",
-                                    isDark ? "bg-white/10" : "bg-black/10"
-                                  )}>
-                                      <ImageIcon className="w-6 h-6 opacity-50" />
-                                  </div>
-                                    <div>
-                                      <p className="text-sm font-medium">Add a background image</p>
-                                      <p className={cn(
-                                        "text-xs mt-1",
-                                        isDark ? "text-white/50" : "text-black/50"
-                                      )}>
-                                        JPEG, PNG, or GIF (max 5MB)
-                                      </p>
-                                    </div>
-                                  </>
-                                )}
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDark ? "bg-white/10" : "bg-black/10"
+                              )}>
+                                <FileText className="w-5 h-5" />
                               </div>
-                              {newNote.image_url && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                    setNewNote(prev => ({ ...prev, image_url: '' }))
-                                    }}
+                              <div className="text-left">
+                                <div className="font-medium">Note</div>
+                                <div className="text-sm opacity-60">Add a note or use the rich editor</div>
+                              </div>
+                            </button>
+
+                            <button
+                              onClick={handleDocumentClick}
+                              className={cn(
+                                  "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                                isDark
+                                  ? "border-white/10 hover:bg-white/5"
+                                  : "border-black/10 hover:bg-black/5",
+                                activeTab === 'document' && (isDark ? "bg-white/5" : "bg-black/5")
+                              )}
+                            >
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDark ? "bg-white/5" : "bg-black/5"
+                              )}>
+                                <File className="w-5 h-5" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium">Document</div>
+                                <div className="text-sm opacity-60">Upload a PDF or other document</div>
+                              </div>
+                            </button>
+                          </div>
+
+                            {/* Right Column - Content */}
+                            <div className="sm:col-span-8 space-y-4">
+                              {activeTab === 'website' && (
+                                <div className="space-y-3">
+                                  <input
+                                    type="url"
+                                    value={websiteUrl}
+                                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                                    placeholder="Enter website URL"
                                     className={cn(
-                                    "absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
-                                    isDark ? "bg-black/50 text-white" : "bg-white/70 text-black"
+                                      "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
+                                      isDark
+                                        ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
+                                        : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                                    )}
+                                  />
+                                </div>
+                              )}
+
+                              {activeTab === 'document' && (
+                                <div className="space-y-3">
+                                  <div
+                                      className={cn(
+                                      "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
+                                      isDark
+                                        ? "border-white/10 hover:bg-white/5"
+                                        : "border-black/10 hover:bg-black/5"
+                                    )}
+                                    onClick={() => document.getElementById('document-upload')?.click()}
+                                  >
+                                    <input
+                                      type="file"
+                                      id="document-upload"
+                                      className="hidden"
+                                      onChange={handleDocumentUpload}
+                                      accept=".pdf,.doc,.docx,.txt"
+                                    />
+                                    <div className="flex flex-col items-center gap-2">
+                                      <File className="w-8 h-8 opacity-50" />
+                                      <div>
+                                        <p className="text-sm font-medium">
+                                          {documentFile ? documentFile.name : 'Click to upload a document'}
+                                        </p>
+                                        <p className={cn(
+                                          "text-xs mt-1",
+                                          isDark ? "text-white/50" : "text-black/50"
+                                        )}>
+                                          PDF, DOC, DOCX, or TXT
+                                        </p>
+                                  </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {activeTab === 'note' && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                        <input
+                          type="text"
+                          value={newNote.title}
+                          onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                                  placeholder="Title"
+                          className={cn(
+                                        "flex-1 px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors",
+                            isDark
+                                      ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
+                                      : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                                  )}
+                                />
+                                <button
+                        onClick={() => setIsAIEnabled(!isAIEnabled)}
+                        className={cn(
+                                    "ml-2 p-2 rounded-lg transition-colors flex items-center gap-2",
+                        isDark
+                                      ? isAIEnabled ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                                      : isAIEnabled ? "bg-black/10 text-black" : "text-black/60 hover:text-black hover:bg-black/5"
                                   )}
                                 >
-                                  <X className="w-4 h-4" />
-                                  </button>
-                              )}
-                                </div>
+                                  <Sparkles className="w-4 h-4" />
+                                  <span className="hidden sm:inline">AI Mode</span>
+                        </button>
+                                  </div>
 
-                            <div className="relative">
-                              {/* Simple Formatting Toolbar */}
-                              <MobileFormattingToolbar
-                                isDark={isDark}
-                                selectedText={selectedText}
-                                onFormat={(format, text) => {
-                                  if (!selectionRange || !text) return;
+                                {/* Image upload section */}
+                                <div
+                                  className={cn(
+                                    "w-full p-4 rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors",
+                                    newNote.image_url
+                                      ? "bg-cover bg-center relative"
+                                      : isDark
+                                        ? "border-white/10 hover:bg-white/5"
+                                        : "border-black/10 hover:bg-black/5",
+                                    "group"
+                                  )}
+                                  style={newNote.image_url ? {
+                                    backgroundImage: `url(${newNote.image_url})`,
+                                    backgroundSize: 'cover'
+                                  } : {}}
+                                  onClick={() => document.getElementById('note-image-upload')?.click()}
+                                >
+                                  <input
+                                    type="file"
+                                    id="note-image-upload"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
 
-                                  const { start, end } = selectionRange;
-                                  const content = newNote.content;
-                                  let newContent = content;
+                                      // Check if it's an image
+                                      if (!file.type.startsWith('image/')) {
+                                        setError('Please upload an image file (JPEG, PNG, GIF)')
+                                          return
+                                        }
 
-                                  switch (format) {
-                                    case 'bold':
-                                      newContent = content.substring(0, start) + `**${text}**` + content.substring(end);
-                                      break;
-                                    case 'italic':
-                                      newContent = content.substring(0, start) + `*${text}*` + content.substring(end);
-                                      break;
-                                    case 'underline':
-                                      newContent = content.substring(0, start) + `<u>${text}</u>` + content.substring(end);
-                                      break;
-                                    case 'bullet':
-                                      newContent = content.substring(0, start) + `\n- ${text}` + content.substring(end);
-                                      break;
-                                    case 'numbered':
-                                      newContent = content.substring(0, start) + `\n1. ${text}` + content.substring(end);
-                                      break;
-                                    case 'heading':
-                                      newContent = content.substring(0, start) + `\n## ${text}` + content.substring(end);
-                                      break;
-                                    case 'quote':
-                                      newContent = content.substring(0, start) + `\n> ${text}` + content.substring(end);
-                                      break;
-                                    case 'link':
-                                      newContent = content.substring(0, start) + `[${text}](url)` + content.substring(end);
-                                      break;
-                                    case 'code':
-                                      newContent = content.substring(0, start) + `\`${text}\`` + content.substring(end);
-                                      break;
-                                    default:
-                                      return;
-                                  }
-
-                                  setNewNote({ ...newNote, content: newContent });
-
-                                  // Focus back on the textarea and set cursor position after the formatted text
-                                  setTimeout(() => {
-                                    if (textareaRef.current) {
-                                      textareaRef.current.focus();
-                                    }
-                                  }, 0);
-                                }}
-                              />
-
-                              <textarea
-                                ref={textareaRef}
-                                value={newNote.content}
-                                onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                                onKeyDown={handleKeyDown}
-                                onSelect={() => {
-                                  if (textareaRef.current) {
-                                    const start = textareaRef.current.selectionStart;
-                                    const end = textareaRef.current.selectionEnd;
-
-                                    if (start !== end) {
-                                      const text = newNote.content.substring(start, end);
-                                      setSelectedText(text);
-                                      setSelectionRange({ start, end });
-                                    } else {
-                                      setSelectedText(null);
-                                      setSelectionRange(null);
-                                    }
-                                  }
-                                }}
-                                onMouseUp={() => {
-                                  if (textareaRef.current) {
-                                    const start = textareaRef.current.selectionStart;
-                                    const end = textareaRef.current.selectionEnd;
-
-                                    if (start !== end) {
-                                      const text = newNote.content.substring(start, end);
-                                      setSelectedText(text);
-                                      setSelectionRange({ start, end });
-                                    }
-                                  }
-                                }}
-                                placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
-                                rows={6}
-                                className={cn(
-                                  "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
-                                  isDark
-                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
-                                    : "border-black/10 focus:border-black/20 placeholder:text-black/30"
-                                )}
-                              />
-
-                              {/* Enhanced AI Generation Animation */}
-                              <AnimatePresence>
-                                {isGenerating && (
-                                  <AIGenerationAnimation
-                                    isDark={isDark}
-                                    isGenerating={isGenerating}
+                                      setIsImageUploading(true)
+                                      try {
+                                        const imageUrl = await handleImageUpload(file)
+                                        setNewNote(prev => ({ ...prev, image_url: imageUrl }))
+                                        setError(null)
+                                      } catch (error) {
+                                        console.error('Error uploading image:', error)
+                                        setError(error instanceof Error ? error.message : 'Failed to upload image. Please try again.')
+                                      } finally {
+                                        setIsImageUploading(false)
+                                      }
+                                    }}
+                                    accept="image/*"
                                   />
-                                )}
-                              </AnimatePresence>
-                              {isAIEnabled && !isGenerating && (
-                                <button
-                                  onClick={async () => {
-                                    const content = newNote.content.trim();
-                                    if (!content) return;
+                                  <div className="flex flex-col items-center gap-2 z-10 relative">
+                                    {isImageUploading ? (
+                                      <div className={cn(
+                                        "p-2 rounded-lg",
+                                        isDark ? "bg-black/50" : "bg-white/50"
+                                      )}>
+                                        <div className="flex items-center gap-2">
+                                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
+                                          <span className={cn(
+                                            "text-sm font-medium",
+                                            isDark ? "text-white" : "text-black"
+                                          )}>
+                                            Uploading...
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ) : newNote.image_url ? (
+                                      <div className={cn(
+                                        "p-2 rounded-lg",
+                                        isDark ? "bg-black/50" : "bg-white/50"
+                                      )}>
+                                        <div className={cn(
+                                          "text-sm font-medium",
+                                          isDark ? "text-white" : "text-black"
+                                        )}>
+                                          Change Background Image
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className={cn(
+                                          "p-2 rounded-full",
+                                        isDark ? "bg-white/10" : "bg-black/10"
+                                      )}>
+                                          <ImageIcon className="w-6 h-6 opacity-50" />
+                                      </div>
+                                        <div>
+                                          <p className="text-sm font-medium">Add a background image</p>
+                                          <p className={cn(
+                                            "text-xs mt-1",
+                                            isDark ? "text-white/50" : "text-black/50"
+                                          )}>
+                                            JPEG, PNG, or GIF (max 5MB)
+                                          </p>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                  {newNote.image_url && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                        setNewNote(prev => ({ ...prev, image_url: '' }))
+                                        }}
+                                        className={cn(
+                                        "absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
+                                        isDark ? "bg-black/50 text-white" : "bg-white/70 text-black"
+                                      )}
+                                    >
+                                      <X className="w-4 h-4" />
+                                      </button>
+                                  )}
+                                    </div>
 
-                                    try {
-                                      setIsGenerating(true);
+                                <div className="relative">
+                                  {/* Simple Formatting Toolbar */}
+                                  <MobileFormattingToolbar
+                                    isDark={isDark}
+                                    selectedText={selectedText}
+                                    onFormat={(format, text) => {
+                                      if (!selectionRange || !text) return;
 
-                                      if (selectedModel.provider === 'gemini') {
-                                        const aiContent = await generateNoteContent(content);
-                                        setNewNote({ ...newNote, content: aiContent });
-                                      } else {
-                                        const response = await generateOpenRouterContent(selectedModel.name, content);
-                                        if (typeof response === 'string') {
-                                          setNewNote({ ...newNote, content: response });
+                                      const { start, end } = selectionRange;
+                                      const content = newNote.content;
+                                      let newContent = content;
+
+                                      switch (format) {
+                                        case 'bold':
+                                          newContent = content.substring(0, start) + `**${text}**` + content.substring(end);
+                                          break;
+                                        case 'italic':
+                                          newContent = content.substring(0, start) + `*${text}*` + content.substring(end);
+                                          break;
+                                        case 'underline':
+                                          newContent = content.substring(0, start) + `<u>${text}</u>` + content.substring(end);
+                                          break;
+                                        case 'bullet':
+                                          newContent = content.substring(0, start) + `\n- ${text}` + content.substring(end);
+                                          break;
+                                        case 'numbered':
+                                          newContent = content.substring(0, start) + `\n1. ${text}` + content.substring(end);
+                                          break;
+                                        case 'heading':
+                                          newContent = content.substring(0, start) + `\n## ${text}` + content.substring(end);
+                                          break;
+                                        case 'quote':
+                                          newContent = content.substring(0, start) + `\n> ${text}` + content.substring(end);
+                                          break;
+                                        case 'link':
+                                          newContent = content.substring(0, start) + `[${text}](url)` + content.substring(end);
+                                          break;
+                                        case 'code':
+                                          newContent = content.substring(0, start) + `\`${text}\`` + content.substring(end);
+                                          break;
+                                        default:
+                                          return;
+                                      }
+
+                                      setNewNote({ ...newNote, content: newContent });
+
+                                      // Focus back on the textarea and set cursor position after the formatted text
+                                      setTimeout(() => {
+                                        if (textareaRef.current) {
+                                          textareaRef.current.focus();
+                                        }
+                                      }, 0);
+                                    }}
+                                  />
+
+                                  <textarea
+                                    ref={textareaRef}
+                                    value={newNote.content}
+                                    onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                                    onKeyDown={handleKeyDown}
+                                    onSelect={() => {
+                                      if (textareaRef.current) {
+                                        const start = textareaRef.current.selectionStart;
+                                        const end = textareaRef.current.selectionEnd;
+
+                                        if (start !== end) {
+                                          const text = newNote.content.substring(start, end);
+                                          setSelectedText(text);
+                                          setSelectionRange({ start, end });
                                         } else {
-                                          const reader = response.body?.getReader();
-                                          if (!reader) {
-                                            throw new Error('Response body is not readable');
-                                          }
-
-                                          const decoder = new TextDecoder();
-                                          let buffer = '';
-                                          let accumulatedContent = '';
-
-                                          try {
-                                            while (true) {
-                                              const { done, value } = await reader.read();
-                                              if (done) break;
-
-                                              buffer += decoder.decode(value, { stream: true });
-
-                                              while (true) {
-                                                const lineEnd = buffer.indexOf('\n');
-                                                if (lineEnd === -1) break;
-
-                                                const line = buffer.slice(0, lineEnd).trim();
-                                                buffer = buffer.slice(lineEnd + 1);
-
-                                                if (line.startsWith('data: ')) {
-                                                  const data = line.slice(6);
-                                                  if (data === '[DONE]') break;
-
-                                                  try {
-                                                    const parsed = JSON.parse(data);
-                                                    const streamContent = parsed.choices[0].delta.content;
-                                                    if (streamContent) {
-                                                      accumulatedContent += streamContent;
-                                                      setNewNote({ ...newNote, content: accumulatedContent });
-                                                    }
-                                                  } catch (e) {
-                                                    // Ignore invalid JSON
-                                                  }
-                                                }
-                                              }
-                                            }
-                                          } catch (error) {
-                                            console.error('Error reading stream:', error);
-                                            setNewNote({ ...newNote, content });
-                                          } finally {
-                                            reader.releaseLock();
-                                          }
+                                          setSelectedText(null);
+                                          setSelectionRange(null);
                                         }
                                       }
-                                    } catch (error) {
-                                      console.error('Error generating AI content:', error);
-                                      setNewNote({ ...newNote, content });
-                                    } finally {
-                                      setIsGenerating(false);
-                                    }
-                                  }}
-                                  className={cn(
-                                    "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
-                                    isDark
-                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
-                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                    }}
+                                    onMouseUp={() => {
+                                      if (textareaRef.current) {
+                                        const start = textareaRef.current.selectionStart;
+                                        const end = textareaRef.current.selectionEnd;
+
+                                        if (start !== end) {
+                                          const text = newNote.content.substring(start, end);
+                                          setSelectedText(text);
+                                          setSelectionRange({ start, end });
+                                        }
+                                      }
+                                    }}
+                                    placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
+                                    rows={6}
+                                    className={cn(
+                                      "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
+                                      isDark
+                                        ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
+                                        : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                                    )}
+                                  />
+
+                                  {/* Enhanced AI Generation Animation */}
+                                  <AnimatePresence>
+                                    {isGenerating && (
+                                      <AIGenerationAnimation
+                                        isDark={isDark}
+                                        isGenerating={isGenerating}
+                                      />
+                                    )}
+                                  </AnimatePresence>
+                                  {isAIEnabled && !isGenerating && (
+                                    <button
+                                      onClick={async () => {
+                                        const content = newNote.content.trim();
+                                        if (!content) return;
+
+                                        try {
+                                          setIsGenerating(true);
+
+                                          if (selectedModel.provider === 'gemini') {
+                                            const aiContent = await generateNoteContent(content);
+                                            setNewNote({ ...newNote, content: aiContent });
+                                          } else {
+                                            const response = await generateOpenRouterContent(selectedModel.name, content);
+                                            if (typeof response === 'string') {
+                                              setNewNote({ ...newNote, content: response });
+                                            } else {
+                                              const reader = response.body?.getReader();
+                                              if (!reader) {
+                                                throw new Error('Response body is not readable');
+                                              }
+
+                                              const decoder = new TextDecoder();
+                                              let buffer = '';
+                                              let accumulatedContent = '';
+
+                                              try {
+                                                while (true) {
+                                                  const { done, value } = await reader.read();
+                                                  if (done) break;
+
+                                                  buffer += decoder.decode(value, { stream: true });
+
+                                                  while (true) {
+                                                    const lineEnd = buffer.indexOf('\n');
+                                                    if (lineEnd === -1) break;
+
+                                                    const line = buffer.slice(0, lineEnd).trim();
+                                                    buffer = buffer.slice(lineEnd + 1);
+
+                                                    if (line.startsWith('data: ')) {
+                                                      const data = line.slice(6);
+                                                      if (data === '[DONE]') break;
+
+                                                      try {
+                                                        const parsed = JSON.parse(data);
+                                                        const streamContent = parsed.choices[0].delta.content;
+                                                        if (streamContent) {
+                                                          accumulatedContent += streamContent;
+                                                          setNewNote({ ...newNote, content: accumulatedContent });
+                                                        }
+                                                      } catch (e) {
+                                                        // Ignore invalid JSON
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              } catch (error) {
+                                                console.error('Error reading stream:', error);
+                                                setNewNote({ ...newNote, content });
+                                              } finally {
+                                                reader.releaseLock();
+                                              }
+                                            }
+                                          }
+                                        } catch (error) {
+                                          console.error('Error generating AI content:', error);
+                                          setNewNote({ ...newNote, content });
+                                        } finally {
+                                          setIsGenerating(false);
+                                        }
+                                      }}
+                                      className={cn(
+                                        "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
+                                        isDark
+                                          ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                          : "hover:bg-black/10 text-black/60 hover:text-black"
+                                      )}
+                                    >
+                                      <Wand2 className="w-4 h-4" />
+                                    </button>
                                   )}
-                                >
-                                  <Wand2 className="w-4 h-4" />
-                                </button>
-                              )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -2344,97 +2351,390 @@ export default function Dashboard() {
                       </div>
                     </div>
                 </div>
-              </motion.div>
+              </main>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {/* Create Space Modal */}
+      {isCreatingSpace && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setIsCreatingSpace(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={cn(
+              "w-full max-w-md p-4 sm:p-6 rounded-xl shadow-lg",
+              isDark ? "bg-slate-900 border border-slate-800" : "bg-white border border-slate-200"
             )}
-
-              {/* Content Grid */}
-              <div className="space-y-8">
-                {/* Content Type Selector */}
-                <div className="space-y-4 mb-8">
-                  <div className="flex justify-center">
-                    <MenuBar
-                      items={contentTypeItems}
-                      activeItem={
-                        activeTab === 'all' ? 'All' :
-                        activeTab === 'note' ? 'Notes' :
-                        activeTab === 'website' ? 'Websites' :
-                        'Documents'
-                      }
-                      onItemClick={(label) => {
-                        switch (label) {
-                          case 'All':
-                            setActiveTab('all')
-                            break
-                          case 'Notes':
-                            setActiveTab('note')
-                            break
-                          case 'Websites':
-                            setActiveTab('website')
-                            break
-                          case 'Documents':
-                            setActiveTab('document')
-                            break
-                        }
-                      }}
-                      className={cn(
-                        isDark
-                          ? "bg-black/20 border-white/5 hover:bg-black/30"
-                          : "bg-white border-black/10 shadow-sm"
-                      )}
-                    />
-                  </div>
-                  
-                  {/* Search and Filter */}
-                  <SearchAndFilter 
-                    onSearch={handleSearch}
-                    onFilter={handleFilter}
-                    isDark={isDark}
-                    className="mt-4"
-                  />
-
-                  {/* Filter Result Count */}
-                  {searchQuery.trim() !== '' && (
-                    <div className={cn(
-                      "text-center text-sm py-1.5 rounded-md border",
-                      isDark 
-                        ? "border-slate-700 bg-slate-800/60 text-white/60" 
-                        : "border-slate-200 bg-slate-50 text-slate-500"
-                    )}>
-                      <span className="font-medium text-xs">
-                        Showing {
-                          activeTab === 'all' 
-                            ? filteredNotes.length + filteredWebsites.length + filteredDocuments.length
-                            : activeTab === 'note' 
-                              ? filteredNotes.length 
-                              : activeTab === 'website' 
-                                ? filteredWebsites.length 
-                                : filteredDocuments.length
-                        } result{
-                          (activeTab === 'all' 
-                            ? filteredNotes.length + filteredWebsites.length + filteredDocuments.length
-                            : activeTab === 'note' 
-                              ? filteredNotes.length 
-                              : activeTab === 'website' 
-                                ? filteredWebsites.length 
-                                : filteredDocuments.length) !== 1 ? 's' : ''
-                        } for <span className={isDark ? "text-emerald-400" : "text-emerald-600"}>"{searchQuery}"</span>
-                      </span>
-                    </div>
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-medium">Create Space</h3>
+              <button
+                onClick={() => setIsCreatingSpace(false)}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isDark ? "hover:bg-white/10" : "hover:bg-black/5"
+                )}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className={cn(
+                  "block text-sm font-medium mb-1",
+                  isDark ? "text-white/80" : "text-black/80"
+                )}>
+                  Space Name
+                </label>
+                <input
+                  type="text"
+                  value={newSpaceName}
+                  onChange={(e) => setNewSpaceName(e.target.value)}
+                  placeholder="Enter space name"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-md border bg-transparent outline-none transition-colors",
+                    isDark
+                      ? "border-slate-700 focus:border-slate-600 placeholder:text-white/30"
+                      : "border-slate-300 focus:border-slate-400 placeholder:text-black/30"
                   )}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className={cn(
+                  "block text-sm font-medium mb-1",
+                  isDark ? "text-white/80" : "text-black/80"
+                )}>
+                  Icon
+                </label>
+                <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
+                  {Object.keys(AVAILABLE_ICONS).map((icon) => {
+                    const IconComponent = AVAILABLE_ICONS[icon];
+                    return (
+                      <button
+                        key={icon}
+                        onClick={() => setSelectedIcon(icon)}
+                        className={cn(
+                          "p-2 rounded-lg flex items-center justify-center transition-colors",
+                          selectedIcon === icon
+                            ? isDark
+                              ? "bg-slate-700"
+                              : "bg-slate-200"
+                            : isDark
+                              ? "hover:bg-slate-800"
+                              : "hover:bg-slate-100"
+                        )}
+                      >
+                        <IconComponent className="w-5 h-5" />
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setIsCreatingSpace(false)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg transition-colors text-sm",
+                    isDark
+                      ? "text-white/60 hover:bg-white/10"
+                      : "text-black/60 hover:bg-black/5"
+                  )}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (newSpaceName.trim()) {
+                      await handleCreateSpace(newSpaceName.trim(), selectedIcon);
+                      setIsCreatingSpace(false);
+                      setNewSpaceName('');
+                    }
+                  }}
+                  disabled={!newSpaceName.trim()}
+                  className={cn(
+                    "px-4 py-2 rounded-lg transition-colors text-sm font-medium",
+                    isDark
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  )}
+                >
+                  Create Space
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
-                {/* Notes Section */}
-                {(activeTab === 'all' || activeTab === 'note') && filteredNotes.length > 0 && (
-                  <div>
-                    {activeTab === 'all' && (
-                      <h3 className={cn(
-                        "text-lg font-medium mb-4",
-                        isDark ? "text-white/90" : "text-black/90"
-                      )}>
-                        Notes
-                      </h3>
-                    )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Mobile space menu */}
+      <AnimatePresence>
+        {showSpaceMenu && longPressSpace && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowSpaceMenu(false)}
+          >
+            <div 
+              className={cn(
+                "absolute w-64 rounded-lg shadow-xl p-3 border",
+                isDark 
+                  ? "bg-slate-900 border-slate-800" 
+                  : "bg-white border-slate-200"
+              )}
+              style={{
+                top: '80px', // Position below the header
+                left: '50%',
+                transform: 'translateX(-50%)'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="font-medium mb-2 flex items-center gap-2">
+                {(() => {
+                  const IconComp = longPressSpace.icon ? AVAILABLE_ICONS[longPressSpace.icon] : null;
+                  return IconComp ? <IconComp className="w-4 h-4" /> : null;
+                })()}
+                {longPressSpace.name}
+              </h3>
+              <div className="grid gap-1">
+                <button
+                  onClick={() => {
+                    const newName = prompt("Enter new space name", longPressSpace.name);
+                    if (newName && newName.trim() !== "") {
+                      handleEditSpace(longPressSpace.id, newName);
+                      setShowSpaceMenu(false);
+                    }
+                  }}
+                  className={cn(
+                    "py-2 px-3 flex items-center gap-2 rounded-md text-sm text-left transition-colors",
+                    isDark 
+                      ? "hover:bg-slate-800" 
+                      : "hover:bg-slate-100"
+                  )}
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Rename Space</span>
+                </button>
+                <button
+                  onClick={handleDeleteSpaceFromMobile}
+                  className={cn(
+                    "py-2 px-3 flex items-center gap-2 rounded-md text-sm text-left transition-colors",
+                    isDark 
+                      ? "text-red-400 hover:bg-red-500/10" 
+                      : "text-red-600 hover:bg-red-500/10"
+                  )}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Space</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Note Preview/Modal */}
+      <AnimatePresence>
+        {selectedNote && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto"
+            onClick={() => setSelectedNote(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className={cn(
+                "w-full max-w-2xl rounded-xl border shadow-lg overflow-hidden max-h-[90vh] flex flex-col",
+                selectedNote.color || (isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {selectedNote.image_url && (
+                <div
+                  className="h-40 sm:h-56 bg-cover bg-center relative"
+                  style={{
+                    backgroundImage: `url(${selectedNote.image_url})`,
+                  }}
+                >
+                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/70 to-transparent"></div>
+                  <div className="absolute top-0 left-0 right-0 flex justify-between p-4">
+                    <button
+                      onClick={() => setSelectedNote(null)}
+                      className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleEditNote(selectedNote);
+                        setSelectedNote(null);
+                      }}
+                      className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div 
+                className={cn(
+                  "p-4 sm:p-6 flex-1 overflow-y-auto",
+                  selectedNote.image_url ? "" : "max-h-[80vh]"
+                )}
+              >
+                {!selectedNote.image_url && (
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-semibold">{selectedNote.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          handleEditNote(selectedNote);
+                          setSelectedNote(null);
+                        }}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark ? "hover:bg-white/10" : "hover:bg-black/5"
+                        )}
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setSelectedNote(null)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isDark ? "hover:bg-white/10" : "hover:bg-black/5"
+                        )}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {selectedNote.image_url && (
+                  <h3 className="text-xl font-semibold mb-4">{selectedNote.title}</h3>
+                )}
+                <div className="flex items-center gap-2 text-xs mb-4">
+                  <Calendar className="w-3 h-3" />
+                  <span className={cn(
+                    isDark ? "text-white/40" : "text-black/40"
+                  )}>
+                    {formatDate(selectedNote.created_at)}
+                  </span>
+                </div>
+                <div className={cn(
+                  "prose prose-sm sm:prose-base max-w-none",
+                  isDark ? "prose-invert" : ""
+                )}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {selectedNote.content}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Content Grid */}
+      <div className="space-y-8">
+        {/* Content Type Selector and Search */}
+        <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
+          <div className="flex justify-center">
+            <MenuBar
+              items={contentTypeItems}
+              activeItem={
+                activeTab === 'all' ? 'All' :
+                activeTab === 'note' ? 'Notes' :
+                activeTab === 'website' ? 'Websites' :
+                'Documents'
+              }
+              onItemClick={(label) => {
+                switch (label) {
+                  case 'All':
+                    setActiveTab('all')
+                    break
+                  case 'Notes':
+                    setActiveTab('note')
+                    break
+                  case 'Websites':
+                    setActiveTab('website')
+                    break
+                  case 'Documents':
+                    setActiveTab('document')
+                    break
+                }
+              }}
+              className={cn(
+                "w-full sm:w-auto text-xs sm:text-sm",
+                isDark
+                  ? "bg-black/20 border-white/5 hover:bg-black/30"
+                  : "bg-white border-black/10 shadow-sm"
+              )}
+            />
+          </div>
+          
+          {/* Search and Filter */}
+          <SearchAndFilter 
+            onSearch={handleSearch}
+            onFilter={handleFilter}
+            isDark={isDark}
+            className="mt-3 sm:mt-4"
+          />
+          
+          {/* Filter Result Count */}
+          {searchQuery.trim() !== '' && (
+            <div className={cn(
+              "text-center text-sm py-1.5 rounded-md border",
+              isDark 
+                ? "border-slate-700 bg-slate-800/60 text-white/60" 
+                : "border-slate-200 bg-slate-50 text-slate-500"
+            )}>
+              <span className="font-medium text-xs">
+                Showing {
+                  activeTab === 'all' 
+                    ? filteredNotes.length + filteredWebsites.length + filteredDocuments.length
+                    : activeTab === 'note' 
+                      ? filteredNotes.length 
+                      : activeTab === 'website' 
+                        ? filteredWebsites.length 
+                        : filteredDocuments.length
+                } result{
+                  (activeTab === 'all' 
+                    ? filteredNotes.length + filteredWebsites.length + filteredDocuments.length
+                    : activeTab === 'note' 
+                      ? filteredNotes.length 
+                      : activeTab === 'website' 
+                        ? filteredWebsites.length 
+                        : filteredDocuments.length) !== 1 ? 's' : ''
+                } for <span className={isDark ? "text-emerald-400" : "text-emerald-600"}>"{searchQuery}"</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Notes Section */}
+        {(activeTab === 'all' || activeTab === 'note') && filteredNotes.length > 0 && (
+          <div>
+            {activeTab === 'all' && (
+              <h3 className={cn(
+                "text-base sm:text-lg font-medium mb-3 sm:mb-4",
+                isDark ? "text-white/90" : "text-black/90"
+              )}>
+                Notes
+              </h3>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {filteredNotes.map((note) => (
                 <motion.div
                   key={note.id}
@@ -2442,10 +2742,10 @@ export default function Dashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => setSelectedNote(note)}
                   className={cn(
-                    "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
-                            isDark ? "border-white/10" : "border-black/10",
-                            note.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                            note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                    "p-4 sm:p-5 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
+                    isDark ? "border-white/10" : "border-black/10",
+                    note.color || (isDark ? "bg-black/60" : "bg-white/60"),
+                    note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
                   )}
                   style={note.image_url ? { position: 'relative' } : {}}
                 >
@@ -2564,13 +2864,13 @@ export default function Dashboard() {
                   <div>
                     {activeTab === 'all' && (
                       <h3 className={cn(
-                        "text-lg font-medium mb-4 mt-8",
+                        "text-base sm:text-lg font-medium mb-3 sm:mb-4 mt-6 sm:mt-8",
                         isDark ? "text-white/90" : "text-black/90"
                       )}>
                         Websites
                       </h3>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {filteredWebsites.map((website) => (
                         <motion.div
                           key={website.id}
@@ -2578,7 +2878,7 @@ export default function Dashboard() {
                           animate={{ opacity: 1, y: 0 }}
                           onClick={() => setSelectedWebsite(website)}
                           className={cn(
-                            "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
+                            "p-4 sm:p-5 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
                             isDark ? "border-white/10" : "border-black/10",
                             website.color || (isDark ? "bg-black/60" : "bg-white/60"),
                             website.color ? `hover:${website.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
@@ -2673,13 +2973,13 @@ export default function Dashboard() {
                   <div>
                     {activeTab === 'all' && (
                       <h3 className={cn(
-                        "text-lg font-medium mb-4 mt-8",
+                        "text-base sm:text-lg font-medium mb-3 sm:mb-4 mt-6 sm:mt-8",
                         isDark ? "text-white/90" : "text-black/90"
                       )}>
                         Documents
                       </h3>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {filteredDocuments.map((document) => (
                         <motion.div
                           key={document.id}
@@ -2687,7 +2987,7 @@ export default function Dashboard() {
                           animate={{ opacity: 1, y: 0 }}
                           onClick={() => setSelectedDocument(document)}
                           className={cn(
-                            "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
+                            "p-4 sm:p-5 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
                             isDark ? "border-white/10" : "border-black/10",
                             document.color || (isDark ? "bg-black/60" : "bg-white/60"),
                             document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
@@ -2794,7 +3094,7 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Show empty state when no items in current tab or no items at all */}
+                {/* Show empty state when no items */}
                 {((activeTab === 'note' && filteredNotes.length === 0) ||
                   (activeTab === 'website' && filteredWebsites.length === 0) ||
                   (activeTab === 'document' && filteredDocuments.length === 0) ||
@@ -2845,7 +3145,7 @@ export default function Dashboard() {
                                 : activeTab === 'website'
                                   ? "You haven't saved any websites yet."
                                   : "You haven't added any documents yet."
-                            }
+                              }
                           </p>
                           <button
                             onClick={
@@ -2874,621 +3174,11 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
+              </div>
             </div>
-
-            {/* Full Screen Note Modal */}
-            <AnimatePresence>
-              {selectedNote && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                >
-                  <div
-                    className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
-                    onClick={() => {
-                      setSelectedNote(null);
-                      setImageOpacity(0.4); // Reset opacity when closing
-                    }}
-                  />
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    className={cn(
-                      "relative w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl z-50 flex flex-col",
-                      isDark
-                        ? "bg-black/80 border border-white/10"
-                        : "bg-white/90 border border-black/5"
-                    )}
-                  >
-                    {selectedNote.image_url && (
-                      <>
-                        <div
-                          className="absolute inset-0 bg-cover bg-center rounded-xl"
-                          style={{
-                            backgroundImage: `url(${selectedNote.image_url})`,
-                            pointerEvents: 'none',
-                            opacity: imageOpacity
-                          }}
-                        />
-                        <div className={cn(
-                          "absolute bottom-4 right-4 z-20 p-1.5 rounded-full backdrop-blur-sm flex items-center gap-2 w-24 opacity-60 hover:opacity-100 transition-opacity duration-200",
-                          isDark
-                            ? "bg-black/5"
-                            : "bg-white/5"
-                        )}>
-                          <Slider
-                            defaultValue={[imageOpacity * 100]}
-                            max={100}
-                            step={1}
-                            onValueChange={(value) => setImageOpacity(value[0] / 100)}
-                            className="w-full"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    <div className="relative z-10 p-6 pb-3 border-b border-gray-200/10">
-                      <div className="flex items-center justify-between">
-                        <h2 className={cn(
-                          "text-2xl font-semibold",
-                          isDark ? "text-white/90" : "text-black/90"
-                        )}>
-                          {selectedNote.title}
-                        </h2>
-                        <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          handleEditNote(selectedNote);
-                          setSelectedNote(null);
-                          setImageOpacity(0.4); // Reset opacity when editing
-                        }}
-                        className={cn(
-                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors",
-                          isDark
-                                ? "bg-white/10 hover:bg-white/20 text-white"
-                                : "bg-black/10 hover:bg-black/20 text-black"
-                        )}
-                      >
-                            <Edit2 className="w-4 h-4" />
-                            <span className="text-sm font-medium">Edit</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedNote(null);
-                          setImageOpacity(0.4); // Reset opacity when closing
-                        }}
-                        className={cn(
-                          "p-2 rounded-lg transition-colors",
-                          isDark
-                            ? "hover:bg-white/10 text-white/60 hover:text-white"
-                            : "hover:bg-black/10 text-black/60 hover:text-black"
-                        )}
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                        </div>
-                    </div>
-
-                      <div className="flex items-center gap-2 text-sm mt-2">
-                        <Calendar className="w-4 h-4" />
-                        <span className={cn(
-                          isDark ? "text-white/40" : "text-black/40"
-                        )}>
-                          {formatDate(selectedNote.created_at)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="relative z-10 flex-1 overflow-y-auto p-6 pt-4">
-                    <div className={cn(
-                      "prose prose-lg max-w-none",
-                      isDark ? "prose-invert text-white/80" : "text-black/80",
-                      "whitespace-pre-wrap"
-                    )}>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          strong: ({node, ...props}) => (
-                            <strong className={cn(
-                              "font-bold",
-                              isDark ? "text-white" : "text-black"
-                            )} {...props} />
-                          ),
-                          p: ({node, ...props}) => (
-                            <p className="mb-4 last:mb-0" {...props} />
-                          )
-                        }}
-                      >
-                        {selectedNote.content}
-                      </ReactMarkdown>
-                      </div>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-              {/* Full Screen Document Modal */}
-              <AnimatePresence>
-                {selectedDocument && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                  >
-                    <div
-                    className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
-                      onClick={() => setSelectedDocument(null)}
-                    />
-                    <motion.div
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.95, opacity: 0 }}
-                      className={cn(
-                      "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
-                        isDark
-                          ? "bg-black/80 border border-white/10"
-                          : "bg-white/90 border border-black/5"
-                      )}
-                    >
-                      <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
-                        <a
-                          href={selectedDocument.publicUrl}
-                          download={selectedDocument.title}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark
-                              ? "hover:bg-white/10 text-white/60 hover:text-white"
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <File className="w-5 h-5" />
-                        </a>
-                        <button
-                          onClick={() => setSelectedDocument(null)}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark
-                              ? "hover:bg-white/10 text-white/60 hover:text-white"
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <div className="mb-6">
-                        <h2 className={cn(
-                          "text-2xl font-semibold mb-2",
-                          isDark ? "text-white/90" : "text-black/90"
-                        )}>
-                          {selectedDocument.title}
-                        </h2>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4" />
-                          <span className={cn(
-                            isDark ? "text-white/40" : "text-black/40"
-                          )}>
-                            {formatDate(selectedDocument.created_at)}
-                          </span>
-                          <span className={cn(
-                            "ml-2 px-2 py-0.5 rounded text-xs uppercase",
-                            isDark ? "bg-white/10 text-white/60" : "bg-black/10 text-black/60"
-                          )}>
-                            {selectedDocument.file_type.split('/')[1]}
-                          </span>
-                          <span className={cn(
-                            isDark ? "text-white/40" : "text-black/40"
-                          )}>
-                            {(selectedDocument.file_size / 1024 / 1024).toFixed(2)} MB
-                          </span>
-                        </div>
-                      </div>
-
-                      {selectedDocument.file_type === 'application/pdf' ? (
-                        <div className="relative w-full h-[70vh] rounded-lg border overflow-hidden">
-                          <iframe
-                            src={selectedDocument.publicUrl}
-                            className="absolute inset-0 w-full h-full"
-                            style={{
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className={cn(
-                          "flex flex-col items-center justify-center py-12 text-center",
-                          isDark ? "text-white/60" : "text-black/60"
-                        )}>
-                          <File className="w-12 h-12 mb-4 opacity-40" />
-                          <p className="mb-2">This document type cannot be previewed</p>
-                          <a
-                            href={selectedDocument.publicUrl}
-                            download={selectedDocument.title}
-                            className={cn(
-                              "text-sm px-4 py-2 rounded-lg transition-colors",
-                              isDark
-                                ? "bg-white/10 hover:bg-white/20"
-                                : "bg-black/10 hover:bg-black/20"
-                            )}
-                          >
-                            Download Document
-                          </a>
-                        </div>
-                      )}
-
-                      {selectedDocument.content && (
-                        <div className={cn(
-                          "mt-6 prose prose-lg max-w-none",
-                          isDark ? "prose-invert text-white/80" : "text-black/80"
-                        )}>
-                          <h3 className={cn(
-                            "text-lg font-medium mb-2",
-                            isDark ? "text-white/90" : "text-black/90"
-                          )}>
-                            Notes
-                          </h3>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              strong: ({node, ...props}) => (
-                                <strong className={cn(
-                                  "font-bold",
-                                  isDark ? "text-white" : "text-black"
-                                )} {...props} />
-                              ),
-                              p: ({node, ...props}) => (
-                                <p className="mb-4 last:mb-0" {...props} />
-                              )
-                            }}
-                          >
-                            {selectedDocument.content}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Full Screen Website Modal */}
-              <AnimatePresence>
-                {selectedWebsite && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                  >
-                    <div
-                    className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
-                      onClick={() => setSelectedWebsite(null)}
-                    />
-                    <motion.div
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.95, opacity: 0 }}
-                      className={cn(
-                      "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl z-50",
-                        isDark
-                          ? "bg-black/80 border border-white/10"
-                          : "bg-white/90 border border-black/5"
-                      )}
-                    >
-                      <div className="flex items-center justify-end gap-2 absolute top-4 right-4">
-                        <a
-                          href={selectedWebsite.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark
-                              ? "hover:bg-white/10 text-white/60 hover:text-white"
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <LinkIcon className="w-5 h-5" />
-                        </a>
-                        <button
-                          onClick={() => setSelectedWebsite(null)}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            isDark
-                              ? "hover:bg-white/10 text-white/60 hover:text-white"
-                              : "hover:bg-black/10 text-black/60 hover:text-black"
-                          )}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <div className="mb-6">
-                        <h2 className={cn(
-                          "text-2xl font-semibold mb-2",
-                          isDark ? "text-white/90" : "text-black/90"
-                        )}>
-                          {selectedWebsite.title}
-                        </h2>
-                        <a
-                          href={selectedWebsite.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "text-sm hover:underline",
-                            isDark ? "text-blue-400" : "text-blue-600"
-                          )}
-                        >
-                          {selectedWebsite.url}
-                        </a>
-                        <div className="flex items-center gap-2 mt-2 text-sm">
-                          <Calendar className="w-4 h-4" />
-                          <span className={cn(
-                            isDark ? "text-white/40" : "text-black/40"
-                          )}>
-                            {formatDate(selectedWebsite.created_at)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {selectedWebsite.content && (
-                        <div className={cn(
-                          "prose prose-lg max-w-none",
-                          isDark ? "prose-invert text-white/80" : "text-black/80"
-                        )}>
-                          <h3 className={cn(
-                            "text-lg font-medium mb-2",
-                            isDark ? "text-white/90" : "text-black/90"
-                          )}>
-                            Notes
-                          </h3>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              strong: ({node, ...props}) => (
-                                <strong className={cn(
-                                  "font-bold",
-                                  isDark ? "text-white" : "text-black"
-                                )} {...props} />
-                              ),
-                              p: ({node, ...props}) => (
-                                <p className="mb-4 last:mb-0" {...props} />
-                              )
-                            }}
-                          >
-                            {selectedWebsite.content}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-
-                      <div className={cn(
-                        "mt-6 p-8 rounded-lg text-center",
-                        isDark ? "bg-white/5" : "bg-black/5"
-                      )}>
-                        <div className={cn(
-                          "text-lg mb-4",
-                          isDark ? "text-white/80" : "text-black/80"
-                        )}>
-                          This website cannot be embedded due to security restrictions.
-                        </div>
-                        <a
-                          href={selectedWebsite.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-colors",
-                            isDark
-                              ? "bg-white/10 hover:bg-white/20 text-white"
-                              : "bg-black/10 hover:bg-black/20 text-black"
-                          )}
-                        >
-                          <LinkIcon className="w-5 h-5" />
-                          Open Website in New Tab
-                        </a>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
-        </main>
         </div>
       </div>
-
-      {/* Create Space Modal */}
-      <AnimatePresence>
-        {isCreatingSpace && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setIsCreatingSpace(false)}
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className={cn(
-                "relative w-full max-w-sm rounded-xl p-6 shadow-2xl",
-                isDark
-                  ? "bg-black/80 border border-white/10"
-                  : "bg-white/90 border border-black/5"
-              )}
-            >
-              <h2 className={cn(
-                "text-xl font-semibold mb-4",
-                isDark ? "text-white/90" : "text-black/90"
-              )}>
-                Create New Space
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className={cn(
-                    "block text-sm font-medium mb-2",
-                    isDark ? "text-white/60" : "text-black/60"
-                  )}>
-                    Space Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newSpaceName}
-                    onChange={(e) => setNewSpaceName(e.target.value)}
-                    placeholder="Enter space name"
-                    className={cn(
-                      "w-full px-3 py-2 rounded-lg border",
-                      isDark
-                        ? "bg-white/5 border-white/10 text-white placeholder:text-white/30"
-                        : "bg-black/5 border-black/10 text-black placeholder:text-black/30"
-                    )}
-                  />
-                </div>
-                <div>
-                  <label className={cn(
-                    "block text-sm font-medium mb-2",
-                    isDark ? "text-white/60" : "text-black/60"
-                  )}>
-                    Icon
-                  </label>
-                  <div className="grid grid-cols-8 gap-2">
-                    {Object.entries(AVAILABLE_ICONS).map(([key, Icon]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSelectedIcon(key)}
-                        className={cn(
-                          "p-2 rounded-lg transition-colors",
-                          isDark
-                            ? selectedIcon === key
-                              ? "bg-white/20 text-white"
-                              : "hover:bg-white/10 text-white/60"
-                            : selectedIcon === key
-                              ? "bg-black/20 text-black"
-                              : "hover:bg-black/10 text-black/60"
-                        )}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingSpace(false)}
-                    className={cn(
-                      "px-4 py-2 rounded-lg",
-                      isDark
-                        ? "text-white/60 hover:text-white/90"
-                        : "text-black/60 hover:text-black/90"
-                    )}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newSpaceName.trim()) {
-                        handleCreateSpace(newSpaceName.trim(), selectedIcon);
-                        setIsCreatingSpace(false);
-                      }
-                    }}
-                    className={cn(
-                      "px-4 py-2 rounded-lg",
-                      isDark
-                        ? "bg-white/10 text-white hover:bg-white/20"
-                        : "bg-black/10 text-black hover:bg-black/20"
-                    )}
-                  >
-                    Create Space
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mobile Space Delete Menu */}
-      <AnimatePresence>
-        {showSpaceMenu && longPressSpace && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => {
-                setShowSpaceMenu(false);
-                setLongPressSpace(null);
-              }}
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className={cn(
-                "relative w-full max-w-sm rounded-xl p-6 shadow-2xl",
-                isDark
-                  ? "bg-black/80 border border-white/10"
-                  : "bg-white/90 border border-black/5"
-              )}
-            >
-              <h2 className={cn(
-                "text-xl font-semibold mb-4",
-                isDark ? "text-white/90" : "text-black/90"
-              )}>
-                Space Options
-              </h2>
-              <div className="space-y-4">
-                <button
-                  onClick={handleDeleteSpaceFromMobile}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-4 rounded-lg text-left",
-                    isDark
-                      ? "bg-red-900/30 text-red-300 hover:bg-red-900/40"
-                      : "bg-red-100 text-red-700 hover:bg-red-200"
-                  )}
-                >
-                  <Trash2 className="w-5 h-5" />
-                  <div>
-                    <div className="font-medium">Delete Space</div>
-                    <div className="text-sm opacity-80 mt-0.5">
-                      This will delete "{longPressSpace.name}" and all its content
-                    </div>
-                  </div>
-                </button>
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => {
-                      setShowSpaceMenu(false);
-                      setLongPressSpace(null);
-                    }}
-                    className={cn(
-                      "px-4 py-2 rounded-lg",
-                      isDark
-                        ? "text-white/60 hover:text-white/90"
-                        : "text-black/60 hover:text-black/90"
-                    )}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
