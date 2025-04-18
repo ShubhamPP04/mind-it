@@ -902,10 +902,12 @@ export default function ChatPage() {
                 >
                   {message.role === 'assistant' && (
                     <div className={cn(
-                      "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-md",
-                      isDark ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 border border-purple-500/50" : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 border border-purple-500/40"
+                      "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-lg",
+                      isDark
+                        ? "bg-gradient-to-br from-purple-600/50 to-blue-600/50 border border-purple-500/60 shadow-purple-500/20"
+                        : "bg-gradient-to-br from-purple-500/40 to-blue-500/40 border border-purple-500/50 shadow-purple-500/10"
                     )}>
-                      <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
+                      <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-md" />
                     </div>
                   )}
                   <motion.div
@@ -918,33 +920,33 @@ export default function ChatPage() {
                       delay: message.role === 'user' ? 0 : 0.1
                     }}
                     className={cn(
-                      "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-5 sm:py-4 break-words group shadow-md",
+                      "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-5 sm:py-4 break-words group shadow-lg",
                       message.role === 'assistant' ? (
                         isDark
-                          ? "bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 text-white/95 border border-white/10"
-                          : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 text-black/95 border border-black/10"
+                          ? "bg-gradient-to-br from-zinc-800/95 to-zinc-900/95 text-white/95 border border-white/15 shadow-zinc-900/30"
+                          : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 text-black/95 border border-black/15 shadow-zinc-300/20"
                       ) : (
                         isDark
-                          ? "bg-gradient-to-br from-purple-600/30 to-blue-600/30 text-white border border-white/15"
-                          : "bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-black border border-black/15"
+                          ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 text-white border border-white/20 shadow-purple-900/30"
+                          : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 text-black border border-black/20 shadow-purple-500/20"
                       )
                     )}
                   >
                     {/* Removed the top-right delete button */}
 
-                    {/* Function buttons that appear on hover */}
+                    {/* Function buttons that appear on hover - positioned at extreme left and right */}
                     <div
                       className={cn(
-                        "absolute -bottom-8 left-0 right-0 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-200",
-                        "px-0 py-1 z-20 translate-y-1 group-hover:translate-y-0 w-full"
+                        "absolute -bottom-8 left-0 right-0 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-300",
+                        "px-0 py-1 z-20 translate-y-2 group-hover:translate-y-0 w-full pointer-events-none group-hover:pointer-events-auto"
                       )}
                     >
-                      {/* Left side buttons */}
+                      {/* Left side buttons - positioned at extreme left */}
                       <div className={cn(
-                        "flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg shadow-md backdrop-blur-sm",
+                        "flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg shadow-lg backdrop-blur-sm pointer-events-auto",
                         isDark
-                          ? "bg-zinc-800/95 border border-white/10"
-                          : "bg-white/95 border border-black/10"
+                          ? "bg-zinc-800/95 border border-white/15 shadow-zinc-900/30"
+                          : "bg-white/95 border border-black/15 shadow-zinc-300/20"
                       )}>
                         {/* Copy button */}
                         <button
@@ -1004,13 +1006,13 @@ export default function ChatPage() {
 
                         </div>
 
-                      {/* Right side buttons */}
+                      {/* Right side buttons - positioned at extreme right */}
                       {message.id && (
                         <div className={cn(
-                          "flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg shadow-md backdrop-blur-sm",
+                          "flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg shadow-lg backdrop-blur-sm pointer-events-auto",
                           isDark
-                            ? "bg-zinc-800/95 border border-white/10"
-                            : "bg-white/95 border border-black/10"
+                            ? "bg-zinc-800/95 border border-white/15 shadow-zinc-900/30"
+                            : "bg-white/95 border border-black/15 shadow-zinc-300/20"
                         )}>
                           {/* Delete button */}
                           <button
@@ -1221,10 +1223,12 @@ export default function ChatPage() {
                   </motion.div>
                   {message.role === 'user' && (
                     <div className={cn(
-                      "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-md",
-                      isDark ? "bg-gradient-to-br from-blue-600/40 to-purple-600/40 border border-blue-500/50" : "bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/40"
+                      "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-lg",
+                      isDark
+                        ? "bg-gradient-to-br from-blue-600/50 to-purple-600/50 border border-blue-500/60 shadow-blue-500/20"
+                        : "bg-gradient-to-br from-blue-500/40 to-purple-500/40 border border-blue-500/50 shadow-blue-500/10"
                     )}>
-                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
+                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-md" />
                     </div>
                   )}
                 </motion.div>
@@ -1234,20 +1238,22 @@ export default function ChatPage() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.4, type: "spring", stiffness: 100 }}
                 className="flex gap-2 sm:gap-4 text-sm leading-relaxed items-start"
               >
                 <div className={cn(
-                  "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-md",
-                  isDark ? "bg-gradient-to-br from-purple-600/40 to-blue-600/40 border border-purple-500/50" : "bg-gradient-to-br from-purple-500/30 to-blue-500/30 border border-purple-500/40"
+                  "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full shrink-0 shadow-lg",
+                  isDark
+                    ? "bg-gradient-to-br from-purple-600/50 to-blue-600/50 border border-purple-500/60 shadow-purple-500/20"
+                    : "bg-gradient-to-br from-purple-500/40 to-blue-500/40 border border-purple-500/50 shadow-purple-500/10"
                 )}>
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-md" />
                 </div>
                 <div className={cn(
-                  "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 shadow-md",
+                  "relative flex-1 max-w-[calc(100%-70px)] sm:max-w-2xl rounded-2xl px-4 py-3 shadow-lg",
                   isDark
-                    ? "bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 text-white/95 border border-white/10"
-                    : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 text-black/95 border border-black/10"
+                    ? "bg-gradient-to-br from-zinc-800/95 to-zinc-900/95 text-white/95 border border-white/15 shadow-zinc-900/30"
+                    : "bg-gradient-to-br from-zinc-50/95 to-zinc-100/95 text-black/95 border border-black/15 shadow-zinc-300/20"
                 )}>
                   <ChatGenerationAnimation isDark={isDark} />
                 </div>
@@ -1258,12 +1264,12 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input - With Web Search Toggle */}
+      {/* Input - With improved circular design */}
       <div className={cn(
         "fixed bottom-0 left-0 right-0 border-t backdrop-blur-md pb-3 sm:pb-4",
         isDark
-          ? "bg-gradient-to-t from-zinc-900/95 via-zinc-900/90 to-zinc-900/80 border-zinc-800/50"
-          : "bg-gradient-to-t from-white/95 via-white/90 to-white/80 border-zinc-200/50"
+          ? "bg-gradient-to-t from-zinc-900/95 via-zinc-900/90 to-zinc-900/80 border-zinc-800/50 shadow-lg shadow-zinc-950/20"
+          : "bg-gradient-to-t from-white/95 via-white/90 to-white/80 border-zinc-200/50 shadow-lg shadow-zinc-300/10"
       )}>
         <form
           onSubmit={handleSubmit}
@@ -1292,12 +1298,12 @@ export default function ChatPage() {
               )}
             </div>
 
-            {/* Rest of the input box */}
+            {/* Improved circular input box */}
             <div className={cn(
-              "relative rounded-full border shadow-md overflow-hidden max-w-full mx-auto transition-all duration-200",
+              "relative rounded-full border shadow-lg overflow-hidden max-w-full mx-auto transition-all duration-300",
               isDark
-                ? "bg-zinc-800/80 border-white/10 hover:border-white/20 hover:bg-zinc-800/90"
-                : "bg-white/80 border-black/10 hover:border-black/20 hover:bg-white/90",
+                ? "bg-zinc-800/90 border-white/15 hover:border-white/25 hover:bg-zinc-800/95 shadow-zinc-900/30"
+                : "bg-white/90 border-black/15 hover:border-black/25 hover:bg-white/95 shadow-zinc-300/20",
               isGenerating && "opacity-50 pointer-events-none"
             )}>
               <textarea
@@ -1309,34 +1315,34 @@ export default function ChatPage() {
                 rows={1}
                 disabled={isGenerating}
                 className={cn(
-                  "w-full px-3 py-2 sm:px-4 sm:py-2.5 pr-10 sm:pr-12 bg-transparent outline-none resize-none",
+                  "w-full px-4 py-2.5 sm:px-5 sm:py-3 pr-12 sm:pr-14 bg-transparent outline-none resize-none",
                   "text-sm leading-relaxed",
-                  "placeholder:text-muted-foreground transition-all duration-200",
+                  "placeholder:text-muted-foreground transition-all duration-300",
                   isDark
                     ? "placeholder:text-white/40 focus:placeholder:text-white/50"
                     : "placeholder:text-black/40 focus:placeholder:text-black/50"
                 )}
                 style={{
-                  minHeight: '42px',
-                  maxHeight: '100px'
+                  minHeight: '46px',
+                  maxHeight: '120px'
                 }}
               />
-              <div className="absolute right-1.5 sm:right-2 bottom-0 top-0 flex items-center justify-center">
+              <div className="absolute right-2 sm:right-3 bottom-0 top-0 flex items-center justify-center">
                 <button
                   type="submit"
                   disabled={!input.trim() || isGenerating}
                   className={cn(
-                    "p-1.5 rounded-full transition-all duration-200 shadow-sm",
+                    "p-2 rounded-full transition-all duration-300 shadow-md",
                     !input.trim()
                       ? (isDark ? "text-white/30" : "text-black/30")
                       : (isDark
-                          ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white hover:shadow-md hover:scale-105"
-                          : "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white hover:shadow-md hover:scale-105"
+                          ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white hover:shadow-lg hover:scale-110"
+                          : "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white hover:shadow-lg hover:scale-110"
                         ),
                     isGenerating && "opacity-50 pointer-events-none"
                   )}
                 >
-                  <Send className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-sm" />
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-md" />
                 </button>
               </div>
             </div>
@@ -1352,14 +1358,14 @@ export default function ChatPage() {
                     <div className="relative w-3 h-3">
                       <div className={cn(
                         "absolute inset-0 rounded-full animate-ping",
-                        isDark ? "bg-purple-400/40" : "bg-purple-500/40"
-                      )} style={{ animationDuration: '2s' }} />
+                        isDark ? "bg-purple-400/50" : "bg-purple-500/50"
+                      )} style={{ animationDuration: '1.8s' }} />
                       <div className={cn(
-                        "absolute inset-0 rounded-full",
-                        isDark ? "bg-purple-400/80" : "bg-purple-500/80"
+                        "absolute inset-0 rounded-full shadow-sm",
+                        isDark ? "bg-purple-400/90" : "bg-purple-500/90"
                       )} />
                     </div>
-                    <span>AI is thinking{isSearching ? ' and searching with Exa' : ''}...</span>
+                    <span className="font-medium">AI is thinking{isSearching ? ' and searching with Exa' : ''}...</span>
                   </div>
                 ) : (
                   <div>
