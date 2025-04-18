@@ -22,18 +22,6 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
-    name: 'openrouter/optimus-alpha',
-    displayName: 'Optimus Alpha',
-    description: 'Powerful model with excellent reasoning and instruction following capabilities'
-  },
-  {
-    provider: 'openrouter',
-    name: 'google/gemini-2.5-pro-exp-03-25:free',
-    displayName: 'Gemini 2.5 Pro Exp',
-    description: 'Latest experimental Gemini 2.5 Pro model with enhanced capabilities'
-  },
-  {
-    provider: 'openrouter',
     name: 'meta-llama/llama-4-scout:free',
     displayName: 'Llama 4 Scout',
     description: 'Smaller, faster Llama 4 model with excellent performance'
@@ -43,12 +31,6 @@ const models: Model[] = [
     name: 'meta-llama/llama-4-maverick:free',
     displayName: 'Llama 4 Maverick',
     description: 'High-performance open model with excellent reasoning capabilities'
-  },
-  {
-    provider: 'openrouter',
-    name: 'openrouter/quasar-alpha',
-    displayName: 'Quasar Alpha',
-    description: 'Newest experimental model with superior multimodal capabilities'
   },
   {
     provider: 'openrouter',
@@ -86,20 +68,26 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Close dropdown when clicking outside
   useOnClickOutside(containerRef, () => setIsOpen(false));
 
-  // Check if we're on a mobile device
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640);
     };
-
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [mounted]);
+
+  if (!mounted) return null;
 
   return (
     <div className="relative" ref={containerRef}>
@@ -319,18 +307,6 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
                          <Brain className="w-2.5 h-2.5" />}
                       </div>
                       <div className="font-medium">{model.displayName}</div>
-                      {model.name.includes('quasar') && (
-                        <span className={cn(
-                          "px-1.5 py-0.5 text-[10px] rounded-full",
-                          isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
-                        )}>Experimental</span>
-                      )}
-                      {model.name.includes('gemini-2.0-flash') && (
-                        <span className={cn(
-                          "px-1.5 py-0.5 text-[10px] rounded-full",
-                          isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"
-                        )}>Default</span>
-                      )}
                     </div>
                     {model.description && !isMobile && (
                       <div className={cn(
