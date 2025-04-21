@@ -27,6 +27,12 @@ export const metadata: Metadata = {
       type: "image/png"
     },
     shortcut: "/logo.png"
+  },
+  // Explicitly prevent Vercel's default favicon
+  other: {
+    "msapplication-TileColor": "#000000",
+    "msapplication-config": "none",
+    "manifest": "/site.webmanifest"
   }
 };
 
@@ -37,7 +43,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
+      <head>
+        {/* Force the browser to use our favicon */}
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="manifest" href="/site.webmanifest" />
+      </head>
 
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider
