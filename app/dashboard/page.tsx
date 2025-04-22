@@ -8,7 +8,7 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { BackgroundPaths } from "@/components/ui/background-paths"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon } from 'lucide-react'
+import { LayoutGrid, List, LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon } from 'lucide-react' // Import new icons
 import { generateNoteContent } from '@/utils/gemini'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
@@ -145,6 +145,12 @@ export default function Dashboard() {
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([])
   const [filteredWebsites, setFilteredWebsites] = useState<Website[]>([])
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([])
+  const [documentViewMode, setDocumentViewMode] = useState<'card' | 'grid'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('documentViewMode') as 'card' | 'grid') || 'card'
+    }
+    return 'card'
+  })
 
   const contentTypeItems = [
     {
@@ -189,6 +195,11 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('selectedModel', JSON.stringify(selectedModel))
   }, [selectedModel])
+
+  // Save document view mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('documentViewMode', documentViewMode)
+  }, [documentViewMode])
 
   // Initialize the app
   useEffect(() => {
@@ -2404,6 +2415,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Search and Filter */}
+                  {/* Global Search and Filter (Toggle buttons removed from here) */}
                   <SearchAndFilter
                     onSearch={handleSearch}
                     onFilter={handleFilter}
@@ -2690,75 +2702,222 @@ export default function Dashboard() {
                 {/* Documents Section */}
                 {(activeTab === 'all' || activeTab === 'document') && filteredDocuments.length > 0 && (
                   <div>
-                    {activeTab === 'all' && (
+                    {/* Documents Header and View Toggle */}
+                    <div className="flex justify-between items-center mb-4 mt-8">
                       <h3 className={cn(
-                        "text-lg font-medium mb-4 mt-8",
-                        isDark ? "text-white/90" : "text-black/90"
+                        "text-lg font-medium", // Removed mb-4, mt-8 as parent handles spacing
+                        isDark ? "text-white/90" : "text-black/90",
+                        // Hide heading if only documents tab is active (redundant)
+                        activeTab === 'document' && 'sr-only'
                       )}>
                         Documents
                       </h3>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {filteredDocuments.map((document) => (
-                        <motion.div
-                          key={document.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          onClick={() => setSelectedDocument(document)}
+                      {/* View Mode Toggle Buttons - Moved to right side */}
+                      <div className="flex items-center gap-1 ml-auto"> {/* Added ml-auto to push to right */}
+                        <button
+                          onClick={() => setDocumentViewMode('card')}
                           className={cn(
-                            "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
-                            isDark ? "border-white/10" : "border-black/10",
-                            document.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                            document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                            "p-1.5 rounded-md transition-colors", // Slightly larger padding, rounded-md
+                            documentViewMode === 'card'
+                              ? (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black") // Active state
+                              : (isDark ? "text-white hover:bg-white/5 hover:text-white/80" : "text-black hover:bg-black/5 hover:text-black/80") // Inactive state - Updated text color
                           )}
+                          aria-label="Card View"
                         >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className={cn(
-                                "text-lg font-medium line-clamp-1",
-                                isDark ? "text-white/90" : "text-black/90"
-                              )}>
-                                {document.title}
-                              </h3>
-                              <div className="flex items-center gap-2 text-sm">
-                                <span className={cn(
-                                  "uppercase",
-                                  isDark ? "text-white/40" : "text-black/40"
+                          <List size={18} className={cn(
+                            documentViewMode === 'card'
+                              ? (isDark ? "text-white" : "text-black") // Active state
+                              : (isDark ? "text-white/50 group-hover:text-white/80" : "text-black/50 group-hover:text-black/80") // Inactive state
+                          )} />
+                        </button>
+                        <button
+                          onClick={() => setDocumentViewMode('grid')}
+                          className={cn(
+                            "p-1.5 rounded-md transition-colors group", // Added group class for hover effects
+                            documentViewMode === 'grid'
+                              ? (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black") // Active state
+                              : (isDark ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-black/50 hover:bg-black/5 hover:text-black/80") // Inactive state - Updated text color
+                          )}
+                          aria-label="Grid View"
+                        >
+                          <LayoutGrid size={18} className={cn(
+                            documentViewMode === 'grid'
+                              ? (isDark ? "text-white" : "text-black") // Active state
+                              : (isDark ? "text-white/50 group-hover:text-white/80" : "text-black/50 group-hover:text-black/80") // Inactive state
+                          )} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Conditional Rendering based on View Mode */}
+                    {documentViewMode === 'card' ? (
+                      // Card View (Existing Layout)
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {filteredDocuments.map((document) => (
+                          <motion.div
+                            key={document.id}
+                            layout // Added layout prop for smoother transitions
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }} // Added exit animation
+                            transition={{ duration: 0.2 }} // Added transition duration
+                            onClick={() => setSelectedDocument(document)}
+                            className={cn(
+                              "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
+                              isDark ? "border-white/10" : "border-black/10",
+                              document.color || (isDark ? "bg-black/60" : "bg-white/60"),
+                              document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                            )}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className={cn(
+                                  "text-lg font-medium line-clamp-1",
+                                  isDark ? "text-white/90" : "text-black/90"
                                 )}>
-                                  {document.file_type.split('/')[1]}
-                                </span>
-                                <span className={cn(
-                                  isDark ? "text-white/40" : "text-black/40"
-                                )}>
-                                  {(document.file_size / 1024 / 1024).toFixed(2)} MB
-                                </span>
+                                  {document.title}
+                                </h3>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className={cn(
+                                    "uppercase",
+                                    isDark ? "text-white/40" : "text-black/40"
+                                  )}>
+                                    {document.file_type.split('/')[1]}
+                                  </span>
+                                  <span className={cn(
+                                    isDark ? "text-white/40" : "text-black/40"
+                                  )}>
+                                    {(document.file_size / 1024 / 1024).toFixed(2)} MB
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const colors = [
+                                      'bg-white dark:bg-zinc-950',
+                                      'bg-red-50 dark:bg-red-950',
+                                      'bg-blue-50 dark:bg-blue-950',
+                                      'bg-green-50 dark:bg-green-950',
+                                      'bg-yellow-50 dark:bg-yellow-950',
+                                      'bg-purple-50 dark:bg-purple-950',
+                                      'bg-pink-50 dark:bg-pink-950',
+                                    ];
+                                    const currentIndex = colors.indexOf(document.color || colors[0]);
+                                    const nextColor = colors[(currentIndex + 1) % colors.length];
+                                    handleColorChange(document.id, nextColor, 'document');
+                                  }}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Paintbrush className="w-4 h-4" />
+                                </button>
+                                <a
+                                  href={document.publicUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <File className="w-4 h-4" />
+                                </a>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteDocument(document.id, document.file_path);
+                                  }}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
+                            <div className="flex items-center gap-2 mt-2 text-xs">
+                              <Calendar className="w-3 h-3" />
+                              <span className={cn(
+                                isDark ? "text-white/40" : "text-black/40"
+                              )}>
+                                {formatDate(document.created_at)}
+                              </span>
+                            </div>
+                            {document.content && (
+                              <div className={cn(
+                                "mt-2 prose prose-sm max-w-none line-clamp-3",
+                                isDark ? "prose-invert text-white/60" : "text-black/60"
+                              )}>
+                                {document.content}
+                              </div>
+                            )}
+                          </motion.div>
+                        ))}
+                      </div>
+                    ) : (
+                      // Grid View (New Square Layout)
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        {filteredDocuments.map((document) => (
+                          <motion.div
+                            key={document.id}
+                            layout // Added layout prop
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.2 }}
+                            className={cn(
+                              "aspect-square p-3 rounded-lg border cursor-pointer transition-all duration-200 relative group flex flex-col items-center justify-center text-center",
+                              selectedDocument?.id === document.id
+                                ? (isDark ? "bg-slate-700/50 border-slate-600" : "bg-slate-100 border-slate-300") // Highlight selected
+                                : (isDark ? "border-white/10" : "border-black/10"), // Default border
+                              document.color || (isDark ? "bg-black/60" : "bg-white/60"), // Background color
+                              document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80") // Hover background
+                            )}
+                            onClick={() => setSelectedDocument(document)}
+                          >
+                            {/* Icon */}
+                            <File size={32} className={cn("mb-2 flex-shrink-0", isDark ? "text-white/80" : "text-black/80")} />
+                            {/* Title (truncated) */}
+                            <h4 className={cn(
+                              "text-xs font-medium w-full truncate",
+                              isDark ? "text-white/80" : "text-black/80"
+                            )}>
+                              {document.title || 'Untitled Document'}
+                            </h4>
+                            {/* Action buttons (appear on hover) */}
+                            <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const colors = [
-                                    'bg-white dark:bg-zinc-950',
-                                    'bg-red-50 dark:bg-red-950',
-                                    'bg-blue-50 dark:bg-blue-950',
-                                    'bg-green-50 dark:bg-green-950',
-                                    'bg-yellow-50 dark:bg-yellow-950',
-                                    'bg-purple-50 dark:bg-purple-950',
-                                    'bg-pink-50 dark:bg-pink-950',
+                                    'bg-white dark:bg-zinc-950', 'bg-red-50 dark:bg-red-950', 'bg-blue-50 dark:bg-blue-950',
+                                    'bg-green-50 dark:bg-green-950', 'bg-yellow-50 dark:bg-yellow-950', 'bg-purple-50 dark:bg-purple-950',
+                                    'bg-pink-50 dark:bg-pink-950'
                                   ];
                                   const currentIndex = colors.indexOf(document.color || colors[0]);
                                   const nextColor = colors[(currentIndex + 1) % colors.length];
                                   handleColorChange(document.id, nextColor, 'document');
                                 }}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
-                                    : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  "p-0.5 rounded transition-colors pointer-events-auto",
+                                  isDark ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
+                                title="Change color"
                               >
-                                <Paintbrush className="w-4 h-4" />
+                                <Paintbrush size={14} />
                               </button>
                               <a
                                 href={document.publicUrl}
@@ -2766,50 +2925,31 @@ export default function Dashboard() {
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
-                                    : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  "p-0.5 rounded transition-colors pointer-events-auto",
+                                  isDark ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
+                                title="Open Document"
                               >
-                                <File className="w-4 h-4" />
+                                <File size={14} />
                               </a>
                               <button
                                 onClick={(e) => {
-                                  e.preventDefault();
                                   e.stopPropagation();
                                   handleDeleteDocument(document.id, document.file_path);
                                 }}
                                 className={cn(
-                                  "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
-                                    : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  "p-0.5 rounded transition-colors pointer-events-auto",
+                                  isDark ? "hover:bg-white/10 text-white/60 hover:text-white" : "hover:bg-black/10 text-black/60 hover:text-black"
                                 )}
+                                title="Delete Document"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 size={14} />
                               </button>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 mt-2 text-xs">
-                            <Calendar className="w-3 h-3" />
-                            <span className={cn(
-                              isDark ? "text-white/40" : "text-black/40"
-                            )}>
-                              {formatDate(document.created_at)}
-                            </span>
-                          </div>
-                          {document.content && (
-                            <div className={cn(
-                              "mt-2 prose prose-sm max-w-none line-clamp-3",
-                              isDark ? "prose-invert text-white/60" : "text-black/60"
-                            )}>
-                              {document.content}
-                            </div>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
