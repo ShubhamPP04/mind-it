@@ -152,6 +152,12 @@ export default function Dashboard() {
     return 'card'
   })
 
+  // Multi-selection state
+  const [selectedNotes, setSelectedNotes] = useState<string[]>([])
+  const [selectedWebsites, setSelectedWebsites] = useState<string[]>([])
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+
   const contentTypeItems = [
     {
       icon: Boxes,
@@ -962,8 +968,43 @@ export default function Dashboard() {
       if (error) throw error
 
       await fetchNotes(user.id)
+
+      // Clear selection if the deleted note was selected
+      setSelectedNotes(prev => prev.filter(noteId => noteId !== id))
+      if (selectedNotes.length === 1 && selectedNotes[0] === id) {
+        setIsSelectionMode(false)
+      }
     } catch (error) {
       console.error('Error deleting note:', error)
+    }
+  }
+
+  // Handle bulk delete of notes
+  const handleBulkDeleteNotes = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Delete each selected note
+      for (const id of selectedNotes) {
+        const { error } = await supabase
+          .from('notes')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+      }
+
+      // Refresh notes
+      await fetchNotes(user.id)
+
+      // Reset selection
+      setSelectedNotes([])
+      setIsSelectionMode(false)
+    } catch (error) {
+      console.error('Error bulk deleting notes:', error)
+      setError('Failed to delete selected notes')
     }
   }
 
@@ -1318,9 +1359,44 @@ export default function Dashboard() {
 
       if (error) throw error
       await fetchWebsites(user.id)
+
+      // Clear selection if the deleted website was selected
+      setSelectedWebsites(prev => prev.filter(websiteId => websiteId !== id))
+      if (selectedWebsites.length === 1 && selectedWebsites[0] === id) {
+        setIsSelectionMode(false)
+      }
     } catch (error) {
       console.error('Error deleting website:', error)
       setError('Failed to delete website')
+    }
+  }
+
+  // Handle bulk delete of websites
+  const handleBulkDeleteWebsites = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Delete each selected website
+      for (const id of selectedWebsites) {
+        const { error } = await supabase
+          .from('websites')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+      }
+
+      // Refresh websites
+      await fetchWebsites(user.id)
+
+      // Reset selection
+      setSelectedWebsites([])
+      setIsSelectionMode(false)
+    } catch (error) {
+      console.error('Error bulk deleting websites:', error)
+      setError('Failed to delete selected websites')
     }
   }
 
@@ -1345,10 +1421,107 @@ export default function Dashboard() {
 
       if (dbError) throw dbError
       await fetchDocuments(user.id)
+
+      // Clear selection if the deleted document was selected
+      setSelectedDocuments(prev => prev.filter(docId => docId !== id))
+      if (selectedDocuments.length === 1 && selectedDocuments[0] === id) {
+        setIsSelectionMode(false)
+      }
     } catch (error) {
       console.error('Error deleting document:', error)
       setError('Failed to delete document')
     }
+  }
+
+  // Handle bulk delete of documents
+  const handleBulkDeleteDocuments = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get file paths for all selected documents
+      const { data: documentsData, error: fetchError } = await supabase
+        .from('documents')
+        .select('id, file_path')
+        .in('id', selectedDocuments)
+        .eq('user_id', user.id)
+
+      if (fetchError) throw fetchError
+
+      if (documentsData && documentsData.length > 0) {
+        // Delete files from storage
+        const filePaths = documentsData.map(doc => doc.file_path)
+        const { error: storageError } = await supabase.storage
+          .from('documents')
+          .remove(filePaths)
+
+        if (storageError) throw storageError
+
+        // Delete document records
+        const { error: dbError } = await supabase
+          .from('documents')
+          .delete()
+          .in('id', selectedDocuments)
+          .eq('user_id', user.id)
+
+        if (dbError) throw dbError
+      }
+
+      // Refresh documents
+      await fetchDocuments(user.id)
+
+      // Reset selection
+      setSelectedDocuments([])
+      setIsSelectionMode(false)
+    } catch (error) {
+      console.error('Error bulk deleting documents:', error)
+      setError('Failed to delete selected documents')
+    }
+  }
+
+  // Functions to handle item selection
+  const toggleNoteSelection = (id: string) => {
+    if (selectedNotes.includes(id)) {
+      setSelectedNotes(prev => prev.filter(noteId => noteId !== id))
+      if (selectedNotes.length === 1) {
+        setIsSelectionMode(false)
+      }
+    } else {
+      setSelectedNotes(prev => [...prev, id])
+      setIsSelectionMode(true)
+    }
+  }
+
+  const toggleWebsiteSelection = (id: string) => {
+    if (selectedWebsites.includes(id)) {
+      setSelectedWebsites(prev => prev.filter(websiteId => websiteId !== id))
+      if (selectedWebsites.length === 1) {
+        setIsSelectionMode(false)
+      }
+    } else {
+      setSelectedWebsites(prev => [...prev, id])
+      setIsSelectionMode(true)
+    }
+  }
+
+  const toggleDocumentSelection = (id: string) => {
+    if (selectedDocuments.includes(id)) {
+      setSelectedDocuments(prev => prev.filter(docId => docId !== id))
+      if (selectedDocuments.length === 1) {
+        setIsSelectionMode(false)
+      }
+    } else {
+      setSelectedDocuments(prev => [...prev, id])
+      setIsSelectionMode(true)
+    }
+  }
+
+  // Function to clear all selections
+  const clearAllSelections = () => {
+    setSelectedNotes([])
+    setSelectedWebsites([])
+    setSelectedDocuments([])
+    setIsSelectionMode(false)
   }
 
   // Add this function near other handlers
@@ -2457,135 +2630,205 @@ export default function Dashboard() {
                 {/* Notes Section */}
                 {(activeTab === 'all' || activeTab === 'note') && filteredNotes.length > 0 && (
                   <div>
-                    {activeTab === 'all' && (
-                      <h3 className={cn(
-                        "text-lg font-medium mb-4",
-                        isDark ? "text-white/90" : "text-black/90"
-                      )}>
-                        Notes
-                      </h3>
-                    )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredNotes.map((note) => (
-                <motion.div
-                  key={note.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onClick={() => setSelectedNote(note)}
-                  className={cn(
-                    "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
+                    <div className="flex justify-between items-center mb-4">
+                      {activeTab === 'all' ? (
+                        <h3 className={cn(
+                          "text-lg font-medium",
+                          isDark ? "text-white/90" : "text-black/90"
+                        )}>
+                          Notes
+                        </h3>
+                      ) : (
+                        <div></div> // Empty div for spacing when not showing title
+                      )}
+
+                      {/* Selection controls */}
+                      <div className="flex items-center gap-2">
+                        {selectedNotes.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-sm",
+                              isDark ? "text-white/60" : "text-black/60"
+                            )}>
+                              {selectedNotes.length} selected
+                            </span>
+                            <button
+                              onClick={handleBulkDeleteNotes}
+                              className={cn(
+                                "p-1.5 rounded-md transition-colors flex items-center gap-1",
+                                isDark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                              )}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="text-xs font-medium">Delete</span>
+                            </button>
+                            <button
+                              onClick={clearAllSelections}
+                              className={cn(
+                                "p-1.5 rounded-md transition-colors",
+                                isDark ? "bg-white/10 text-white/60 hover:bg-white/20" : "bg-black/10 text-black/60 hover:bg-black/20"
+                              )}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredNotes.map((note) => (
+                        <motion.div
+                          key={note.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          onClick={() => {
+                            if (isSelectionMode) {
+                              toggleNoteSelection(note.id);
+                            } else {
+                              setSelectedNote(note);
+                            }
+                          }}
+                          className={cn(
+                            "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative overflow-hidden",
                             isDark ? "border-white/10" : "border-black/10",
                             note.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                            note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
-                  )}
-                  style={note.image_url ? { position: 'relative' } : {}}
-                >
-                  {note.image_url && (
-                    <div
-                      className="absolute inset-0 bg-cover bg-center"
-                      style={{
-                        backgroundImage: `url(${note.image_url})`,
-                        opacity: imageOpacity
-                      }}
-                    />
-                  )}
+                            note.color ? `hover:${note.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80"),
+                            selectedNotes.includes(note.id) && (isDark ? "ring-2 ring-purple-500/50" : "ring-2 ring-purple-500/50")
+                          )}
+                          style={note.image_url ? { position: 'relative' } : {}}
+                        >
+                          {/* Selection checkbox - visible on hover or when selected */}
+                          <div
+                            className={cn(
+                              "absolute top-2 left-2 z-20 transition-opacity",
+                              selectedNotes.includes(note.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleNoteSelection(note.id);
+                            }}
+                          >
+                            <div className={cn(
+                              "w-5 h-5 rounded border flex items-center justify-center",
+                              selectedNotes.includes(note.id)
+                                ? (isDark ? "bg-purple-500 border-purple-400" : "bg-purple-500 border-purple-400")
+                                : (isDark ? "border-white/20 bg-black/30" : "border-black/20 bg-white/30")
+                            )}>
+                              {selectedNotes.includes(note.id) && (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
 
-                  <div className="relative z-10">
-                  <div className="flex items-start justify-between">
-                    <h3 className={cn(
-                      "text-lg font-medium line-clamp-1",
-                      isDark ? "text-white/90" : "text-black/90"
-                    )}>
-                      {note.title}
-                    </h3>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const colors = [
-                                    'bg-white dark:bg-zinc-950',
-                                    'bg-red-50 dark:bg-red-950',
-                                    'bg-blue-50 dark:bg-blue-950',
-                                    'bg-green-50 dark:bg-green-950',
-                                    'bg-yellow-50 dark:bg-yellow-950',
-                                    'bg-purple-50 dark:bg-purple-950',
-                                    'bg-pink-50 dark:bg-pink-950',
-                                  ];
-                                  const currentIndex = colors.indexOf(note.color || colors[0]);
-                                  const nextColor = colors[(currentIndex + 1) % colors.length];
-                                  handleColorChange(note.id, nextColor, 'note');
+                          {note.image_url && (
+                            <div
+                              className="absolute inset-0 bg-cover bg-center"
+                              style={{
+                                backgroundImage: `url(${note.image_url})`,
+                                opacity: imageOpacity
+                              }}
+                            />
+                          )}
+
+                          <div className="relative z-10">
+                            <div className="flex items-start justify-between">
+                              <h3 className={cn(
+                                "text-lg font-medium line-clamp-1",
+                                isDark ? "text-white/90" : "text-black/90"
+                              )}>
+                                {note.title}
+                              </h3>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const colors = [
+                                      'bg-white dark:bg-zinc-950',
+                                      'bg-red-50 dark:bg-red-950',
+                                      'bg-blue-50 dark:bg-blue-950',
+                                      'bg-green-50 dark:bg-green-950',
+                                      'bg-yellow-50 dark:bg-yellow-950',
+                                      'bg-purple-50 dark:bg-purple-950',
+                                      'bg-pink-50 dark:bg-pink-950',
+                                    ];
+                                    const currentIndex = colors.indexOf(note.color || colors[0]);
+                                    const nextColor = colors[(currentIndex + 1) % colors.length];
+                                    handleColorChange(note.id, nextColor, 'note');
+                                  }}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Paintbrush className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditNote(note);
+                                  }}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteNote(note.id);
+                                  }}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2 text-xs">
+                              <Calendar className="w-3 h-3" />
+                              <span className={cn(
+                                isDark ? "text-white/40" : "text-black/40"
+                              )}>
+                                {formatDate(note.created_at)}
+                              </span>
+                            </div>
+                            <div className={cn(
+                              "mt-2 prose prose-base max-w-none line-clamp-4 text-base",
+                              isDark ? "prose-invert text-white/60" : "text-black/60"
+                            )}>
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  strong: ({node, ...props}) => (
+                                    <strong className={cn(
+                                      "font-bold",
+                                      isDark ? "text-white" : "text-black"
+                                    )} {...props} />
+                                  ),
+                                  p: ({node, ...props}) => (
+                                    <p className="mb-2 last:mb-0" {...props} />
+                                  )
                                 }}
-                                className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                                  isDark
-                                    ? "hover:bg-white/10 text-white/60 hover:text-white"
-                                    : "hover:bg-black/10 text-black/60 hover:text-black"
-                                )}
                               >
-                                <Paintbrush className="w-4 h-4" />
-                              </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditNote(note);
-                        }}
-                        className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                          isDark
-                            ? "hover:bg-white/10 text-white/60 hover:text-white"
-                            : "hover:bg-black/10 text-black/60 hover:text-black"
-                        )}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteNote(note.id);
-                        }}
-                        className={cn(
-                            "p-1 rounded-lg transition-colors pointer-events-auto",
-                          isDark
-                            ? "hover:bg-white/10 text-white/60 hover:text-white"
-                            : "hover:bg-black/10 text-black/60 hover:text-black"
-                        )}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 text-xs">
-                    <Calendar className="w-3 h-3" />
-                    <span className={cn(
-                      isDark ? "text-white/40" : "text-black/40"
-                    )}>
-                      {formatDate(note.created_at)}
-                    </span>
-                  </div>
-                  <div className={cn(
-                    "mt-2 prose prose-base max-w-none line-clamp-4 text-base",
-                    isDark ? "prose-invert text-white/60" : "text-black/60"
-                  )}>
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        strong: ({node, ...props}) => (
-                          <strong className={cn(
-                            "font-bold",
-                                    isDark ? "text-white" : "text-black"
-                          )} {...props} />
-                        ),
-                        p: ({node, ...props}) => (
-                          <p className="mb-2 last:mb-0" {...props} />
-                        )
-                      }}
-                    >
-                      {note.content}
-                    </ReactMarkdown>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                                {note.content}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -2593,28 +2836,98 @@ export default function Dashboard() {
                 {/* Websites Section */}
                 {(activeTab === 'all' || activeTab === 'website') && filteredWebsites.length > 0 && (
                   <div>
-                    {activeTab === 'all' && (
-                      <h3 className={cn(
-                        "text-lg font-medium mb-4 mt-8",
-                        isDark ? "text-white/90" : "text-black/90"
-                      )}>
-                        Websites
-                      </h3>
-                    )}
+                    <div className="flex justify-between items-center mb-4 mt-8">
+                      {activeTab === 'all' ? (
+                        <h3 className={cn(
+                          "text-lg font-medium",
+                          isDark ? "text-white/90" : "text-black/90"
+                        )}>
+                          Websites
+                        </h3>
+                      ) : (
+                        <div></div> // Empty div for spacing when not showing title
+                      )}
+
+                      {/* Selection controls */}
+                      <div className="flex items-center gap-2">
+                        {selectedWebsites.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-sm",
+                              isDark ? "text-white/60" : "text-black/60"
+                            )}>
+                              {selectedWebsites.length} selected
+                            </span>
+                            <button
+                              onClick={handleBulkDeleteWebsites}
+                              className={cn(
+                                "p-1.5 rounded-md transition-colors flex items-center gap-1",
+                                isDark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                              )}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="text-xs font-medium">Delete</span>
+                            </button>
+                            <button
+                              onClick={clearAllSelections}
+                              className={cn(
+                                "p-1.5 rounded-md transition-colors",
+                                isDark ? "bg-white/10 text-white/60 hover:bg-white/20" : "bg-black/10 text-black/60 hover:bg-black/20"
+                              )}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {filteredWebsites.map((website) => (
                         <motion.div
                           key={website.id}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          onClick={() => setSelectedWebsite(website)}
+                          onClick={() => {
+                            if (isSelectionMode) {
+                              toggleWebsiteSelection(website.id);
+                            } else {
+                              setSelectedWebsite(website);
+                            }
+                          }}
                           className={cn(
                             "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
                             isDark ? "border-white/10" : "border-black/10",
                             website.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                            website.color ? `hover:${website.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                            website.color ? `hover:${website.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80"),
+                            selectedWebsites.includes(website.id) && (isDark ? "ring-2 ring-green-500/50" : "ring-2 ring-green-500/50")
                           )}
                         >
+                          {/* Selection checkbox - visible on hover or when selected */}
+                          <div
+                            className={cn(
+                              "absolute top-2 left-2 z-20 transition-opacity",
+                              selectedWebsites.includes(website.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleWebsiteSelection(website.id);
+                            }}
+                          >
+                            <div className={cn(
+                              "w-5 h-5 rounded border flex items-center justify-center",
+                              selectedWebsites.includes(website.id)
+                                ? (isDark ? "bg-green-500 border-green-400" : "bg-green-500 border-green-400")
+                                : (isDark ? "border-white/20 bg-black/30" : "border-black/20 bg-white/30")
+                            )}>
+                              {selectedWebsites.includes(website.id) && (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+
                           <div className="flex items-start justify-between">
                             <div>
                               <h3 className={cn(
@@ -2627,6 +2940,7 @@ export default function Dashboard() {
                                 href={website.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
                                 className={cn(
                                   "text-sm hover:underline",
                                   isDark ? "text-blue-400" : "text-blue-600"
@@ -2712,40 +3026,74 @@ export default function Dashboard() {
                       )}>
                         Documents
                       </h3>
-                      {/* View Mode Toggle Buttons - Moved to right side */}
-                      <div className="flex items-center gap-1 ml-auto"> {/* Added ml-auto to push to right */}
-                        <button
-                          onClick={() => setDocumentViewMode('card')}
-                          className={cn(
-                            "p-1.5 rounded-md transition-colors", // Slightly larger padding, rounded-md
-                            documentViewMode === 'card'
-                              ? (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black") // Active state
-                              : (isDark ? "text-white hover:bg-white/5 hover:text-white/80" : "text-black hover:bg-black/5 hover:text-black/80") // Inactive state - Updated text color
-                          )}
-                          aria-label="Card View"
-                        >
-                          <List size={18} className={cn(
-                            documentViewMode === 'card'
-                              ? (isDark ? "text-white" : "text-black") // Active state
-                              : (isDark ? "text-white/50 group-hover:text-white/80" : "text-black/50 group-hover:text-black/80") // Inactive state
-                          )} />
-                        </button>
-                        <button
-                          onClick={() => setDocumentViewMode('grid')}
-                          className={cn(
-                            "p-1.5 rounded-md transition-colors group", // Added group class for hover effects
-                            documentViewMode === 'grid'
-                              ? (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black") // Active state
-                              : (isDark ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-black/50 hover:bg-black/5 hover:text-black/80") // Inactive state - Updated text color
-                          )}
-                          aria-label="Grid View"
-                        >
-                          <LayoutGrid size={18} className={cn(
-                            documentViewMode === 'grid'
-                              ? (isDark ? "text-white" : "text-black") // Active state
-                              : (isDark ? "text-white/50 group-hover:text-white/80" : "text-black/50 group-hover:text-black/80") // Inactive state
-                          )} />
-                        </button>
+
+                      <div className="flex items-center gap-2">
+                        {/* Selection controls */}
+                        {selectedDocuments.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-sm",
+                              isDark ? "text-white/60" : "text-black/60"
+                            )}>
+                              {selectedDocuments.length} selected
+                            </span>
+                            <button
+                              onClick={handleBulkDeleteDocuments}
+                              className={cn(
+                                "p-1.5 rounded-md transition-colors flex items-center gap-1",
+                                isDark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                              )}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="text-xs font-medium">Delete</span>
+                            </button>
+                            <button
+                              onClick={clearAllSelections}
+                              className={cn(
+                                "p-1.5 rounded-md transition-colors",
+                                isDark ? "bg-white/10 text-white/60 hover:bg-white/20" : "bg-black/10 text-black/60 hover:bg-black/20"
+                              )}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* View Mode Toggle Buttons */}
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => setDocumentViewMode('card')}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors", // Slightly larger padding, rounded-md
+                              documentViewMode === 'card'
+                                ? (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black") // Active state
+                                : (isDark ? "text-white hover:bg-white/5 hover:text-white/80" : "text-black hover:bg-black/5 hover:text-black/80") // Inactive state - Updated text color
+                            )}
+                            aria-label="Card View"
+                          >
+                            <List size={18} className={cn(
+                              documentViewMode === 'card'
+                                ? (isDark ? "text-white" : "text-black") // Active state
+                                : (isDark ? "text-white/50 group-hover:text-white/80" : "text-black/50 group-hover:text-black/80") // Inactive state
+                            )} />
+                          </button>
+                          <button
+                            onClick={() => setDocumentViewMode('grid')}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors group", // Added group class for hover effects
+                              documentViewMode === 'grid'
+                                ? (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black") // Active state
+                                : (isDark ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-black/50 hover:bg-black/5 hover:text-black/80") // Inactive state - Updated text color
+                            )}
+                            aria-label="Grid View"
+                          >
+                            <LayoutGrid size={18} className={cn(
+                              documentViewMode === 'grid'
+                                ? (isDark ? "text-white" : "text-black") // Active state
+                                : (isDark ? "text-white/50 group-hover:text-white/80" : "text-black/50 group-hover:text-black/80") // Inactive state
+                            )} />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -2761,14 +3109,46 @@ export default function Dashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }} // Added exit animation
                             transition={{ duration: 0.2 }} // Added transition duration
-                            onClick={() => setSelectedDocument(document)}
+                            onClick={() => {
+                              if (isSelectionMode) {
+                                toggleDocumentSelection(document.id);
+                              } else {
+                                setSelectedDocument(document);
+                              }
+                            }}
                             className={cn(
                               "p-6 rounded-xl border group cursor-pointer hover:shadow-lg transition-all duration-300 relative",
                               isDark ? "border-white/10" : "border-black/10",
                               document.color || (isDark ? "bg-black/60" : "bg-white/60"),
-                              document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80")
+                              document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80"),
+                              selectedDocuments.includes(document.id) && (isDark ? "ring-2 ring-red-500/50" : "ring-2 ring-red-500/50")
                             )}
                           >
+                            {/* Selection checkbox - visible on hover or when selected */}
+                            <div
+                              className={cn(
+                                "absolute top-2 left-2 z-20 transition-opacity",
+                                selectedDocuments.includes(document.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleDocumentSelection(document.id);
+                              }}
+                            >
+                              <div className={cn(
+                                "w-5 h-5 rounded border flex items-center justify-center",
+                                selectedDocuments.includes(document.id)
+                                  ? (isDark ? "bg-red-500 border-red-400" : "bg-red-500 border-red-400")
+                                  : (isDark ? "border-white/20 bg-black/30" : "border-black/20 bg-white/30")
+                              )}>
+                                {selectedDocuments.includes(document.id) && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+
                             <div className="flex items-start justify-between">
                               <div>
                                 <h3 className={cn(
@@ -2884,10 +3264,42 @@ export default function Dashboard() {
                                 ? (isDark ? "bg-slate-700/50 border-slate-600" : "bg-slate-100 border-slate-300") // Highlight selected
                                 : (isDark ? "border-white/10" : "border-black/10"), // Default border
                               document.color || (isDark ? "bg-black/60" : "bg-white/60"), // Background color
-                              document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80") // Hover background
+                              document.color ? `hover:${document.color.replace('bg-', 'bg-opacity-90')}` : (isDark ? "hover:bg-black/70" : "hover:bg-white/80"), // Hover background
+                              selectedDocuments.includes(document.id) && (isDark ? "ring-2 ring-red-500/50" : "ring-2 ring-red-500/50")
                             )}
-                            onClick={() => setSelectedDocument(document)}
+                            onClick={() => {
+                              if (isSelectionMode) {
+                                toggleDocumentSelection(document.id);
+                              } else {
+                                setSelectedDocument(document);
+                              }
+                            }}
                           >
+                            {/* Selection checkbox - visible on hover or when selected */}
+                            <div
+                              className={cn(
+                                "absolute top-1 left-1 z-20 transition-opacity",
+                                selectedDocuments.includes(document.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleDocumentSelection(document.id);
+                              }}
+                            >
+                              <div className={cn(
+                                "w-4 h-4 rounded border flex items-center justify-center",
+                                selectedDocuments.includes(document.id)
+                                  ? (isDark ? "bg-red-500 border-red-400" : "bg-red-500 border-red-400")
+                                  : (isDark ? "border-white/20 bg-black/30" : "border-black/20 bg-white/30")
+                              )}>
+                                {selectedDocuments.includes(document.id) && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+
                             {/* Icon */}
                             <File size={32} className={cn("mb-2 flex-shrink-0", isDark ? "text-white/80" : "text-black/80")} />
                             {/* Title (truncated) */}

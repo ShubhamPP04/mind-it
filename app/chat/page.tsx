@@ -27,6 +27,7 @@ interface Message {
     url?: string
     content: string
     space_id: string | null
+    created_at?: string
   }>
   exaSearchResults?: Array<{
     title: string
@@ -362,10 +363,168 @@ export default function ChatPage() {
     }
   }
 
+  // Function to extract date from user query
+  const extractDateFromQuery = (query: string): Date | null => {
+    // Common date formats
+    const datePatterns = [
+      // YYYY-MM-DD
+      /\b(\d{4})[-\/](0?[1-9]|1[0-2])[-\/](0?[1-9]|[12]\d|3[01])\b/,
+      // MM-DD-YYYY or DD-MM-YYYY
+      /\b(0?[1-9]|1[0-2])[-\/](0?[1-9]|[12]\d|3[01])[-\/](\d{4})\b/,
+      /\b(0?[1-9]|[12]\d|3[01])[-\/](0?[1-9]|1[0-2])[-\/](\d{4})\b/,
+      // Month name formats
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?(?:[,\s]+)?(\d{4})?\b/i,
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?(?:[,\s]+)?(\d{4})?\b/i,
+      // Day Month format
+      /\b(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:[,\s]+)?(\d{4})?\b/i,
+      /\b(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:[,\s]+)?(\d{4})?\b/i,
+      // Relative dates
+      /\b(yesterday|today|tomorrow)\b/i,
+      /\b(last|this|next)\s+(day|week|month|year)\b/i
+    ]
+
+    // Try to match each pattern
+    for (const pattern of datePatterns) {
+      const match = query.match(pattern)
+      if (match) {
+        try {
+          // Handle different formats
+          if (match[0].toLowerCase().includes('yesterday')) {
+            const date = new Date()
+            date.setDate(date.getDate() - 1)
+            return date
+          } else if (match[0].toLowerCase().includes('today')) {
+            return new Date()
+          } else if (match[0].toLowerCase().includes('tomorrow')) {
+            const date = new Date()
+            date.setDate(date.getDate() + 1)
+            return date
+          } else if (match[0].toLowerCase().includes('last') ||
+                     match[0].toLowerCase().includes('this') ||
+                     match[0].toLowerCase().includes('next')) {
+            // Handle relative time expressions
+            const date = new Date()
+            const modifier = match[1].toLowerCase()
+            const unit = match[2].toLowerCase()
+
+            if (modifier === 'last') {
+              if (unit === 'day') date.setDate(date.getDate() - 1)
+              else if (unit === 'week') date.setDate(date.getDate() - 7)
+              else if (unit === 'month') date.setMonth(date.getMonth() - 1)
+              else if (unit === 'year') date.setFullYear(date.getFullYear() - 1)
+            } else if (modifier === 'next') {
+              if (unit === 'day') date.setDate(date.getDate() + 1)
+              else if (unit === 'week') date.setDate(date.getDate() + 7)
+              else if (unit === 'month') date.setMonth(date.getMonth() + 1)
+              else if (unit === 'year') date.setFullYear(date.getFullYear() + 1)
+            }
+
+            return date
+          } else {
+            // Try to parse the date string
+            const dateStr = match[0].replace(/(?:st|nd|rd|th)/, '')
+            const parsedDate = new Date(dateStr)
+
+            // Check if the date is valid
+            if (!isNaN(parsedDate.getTime())) {
+              return parsedDate
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing date:', e)
+        }
+      }
+    }
+
+    return null
+  }
+
+  // Function to check if two dates are on the same day
+  const isSameDay = (date1: Date, date2: Date): boolean => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate()
+  }
+
+  // Function to format date for display
+  const formatDateForDisplay = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
   const findRelevantContent = (query: string) => {
     const relevantContent: Message['sources'] = []
     const queryLower = query.toLowerCase()
 
+    // Check if query contains date-related keywords
+    const dateKeywords = ['date', 'day', 'yesterday', 'today', 'tomorrow', 'last', 'this', 'next', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december', 'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    const containsDateKeyword = dateKeywords.some(keyword => queryLower.includes(keyword))
+
+    // Extract date from query if present
+    const extractedDate = extractDateFromQuery(query)
+
+    // If date is found in the query, search for content from that date
+    if (extractedDate) {
+      console.log('Found date in query:', formatDateForDisplay(extractedDate))
+
+      // Check notes by date
+      userContent.notes.forEach(note => {
+        const noteDate = new Date(note.created_at)
+        if (isSameDay(noteDate, extractedDate)) {
+          relevantContent.push({
+            type: 'note',
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            space_id: note.space_id,
+            created_at: note.created_at
+          })
+        }
+      })
+
+      // Check websites by date
+      userContent.websites.forEach(website => {
+        const websiteDate = new Date(website.created_at)
+        if (isSameDay(websiteDate, extractedDate)) {
+          relevantContent.push({
+            type: 'website',
+            id: website.id,
+            title: website.title,
+            url: website.url,
+            content: website.content,
+            space_id: website.space_id,
+            created_at: website.created_at
+          })
+        }
+      })
+
+      // Check documents by date
+      userContent.documents.forEach(document => {
+        const documentDate = new Date(document.created_at)
+        if (isSameDay(documentDate, extractedDate)) {
+          relevantContent.push({
+            type: 'document',
+            id: document.id,
+            title: document.title,
+            url: document.document_url,
+            content: document.content,
+            space_id: document.space_id,
+            created_at: document.created_at
+          })
+        }
+      })
+
+      // If we found date-specific content, return it
+      if (relevantContent.length > 0) {
+        return relevantContent
+      }
+    }
+
+    // If no date was found or no content matched the date, fall back to keyword search
     // Simple relevance scoring based on content matching
     const isRelevant = (text: string) => text.toLowerCase().includes(queryLower)
 
@@ -377,7 +536,8 @@ export default function ChatPage() {
           id: note.id,
           title: note.title,
           content: note.content,
-          space_id: note.space_id
+          space_id: note.space_id,
+          created_at: note.created_at
         })
       }
     })
@@ -391,7 +551,8 @@ export default function ChatPage() {
           title: website.title,
           url: website.url,
           content: website.content,
-          space_id: website.space_id
+          space_id: website.space_id,
+          created_at: website.created_at
         })
       }
     })
@@ -405,7 +566,8 @@ export default function ChatPage() {
           title: document.title,
           url: document.document_url,
           content: document.content,
-          space_id: document.space_id
+          space_id: document.space_id,
+          created_at: document.created_at
         })
       }
     })
@@ -427,6 +589,9 @@ export default function ChatPage() {
 
     // Find relevant content before generating response
     const relevantSources = findRelevantContent(userMessage)
+
+    // Check if the query contains a date
+    const extractedDate = extractDateFromQuery(userMessage)
 
     // Create a new conversation if needed
     let conversationId = currentConversationId
@@ -453,37 +618,153 @@ export default function ChatPage() {
     // Save user message to database
     const savedUserMsg = await saveMessage(userMsg, conversationId)
 
-    // Check if the user is asking for their notes or memories
-    const lowerCaseMessage = userMessage.toLowerCase()
-    if (lowerCaseMessage === 'my notes' || lowerCaseMessage === 'my memories') {
-      // Create a response that shows all the user's notes
-      const allNotes = userContent.notes
+    // If a date was found and we have relevant sources, create a special response
+    if (extractedDate && relevantSources.length > 0) {
+      const formattedDate = formatDateForDisplay(extractedDate)
+      const noteCount = relevantSources.filter(source => source.type === 'note').length
+      const websiteCount = relevantSources.filter(source => source.type === 'website').length
+      const documentCount = relevantSources.filter(source => source.type === 'document').length
 
-      if (allNotes.length === 0) {
-        // No notes found
+      let contentSummary = `I found ${relevantSources.length} item${relevantSources.length !== 1 ? 's' : ''} from ${formattedDate}:\n\n`
+
+      if (noteCount > 0) {
+        contentSummary += `- ${noteCount} note${noteCount !== 1 ? 's' : ''}\n`
+      }
+      if (websiteCount > 0) {
+        contentSummary += `- ${websiteCount} website${websiteCount !== 1 ? 's' : ''}\n`
+      }
+      if (documentCount > 0) {
+        contentSummary += `- ${documentCount} document${documentCount !== 1 ? 's' : ''}\n`
+      }
+
+      contentSummary += '\nHere are the items from that date:\n\n'
+
+      // Add titles and content of all items
+      relevantSources.forEach((source, index) => {
+        contentSummary += `**${index + 1}. ${source.title}** (${source.type})\n`
+
+        // Add content preview for notes
+        if (source.type === 'note' && source.content) {
+          // Truncate content if it's too long
+          const contentPreview = source.content.length > 200
+            ? source.content.substring(0, 200) + '...'
+            : source.content;
+          contentSummary += `${contentPreview}\n\n`;
+        } else if (source.type === 'website' || source.type === 'document') {
+          // For websites and documents, just add a separator
+          contentSummary += '\n';
+        }
+      })
+
+      const assistantMsg: Message = {
+        role: 'assistant',
+        content: contentSummary,
+        sources: relevantSources
+      }
+
+      setMessages(prev => [...prev, assistantMsg])
+      await saveMessage(assistantMsg, conversationId)
+      return
+    }
+
+    // Check if the user is asking for their notes, memories, or content
+    const lowerCaseMessage = userMessage.toLowerCase()
+    const memoryKeywords = ['my notes', 'my memories', 'my content', 'show me my notes', 'show me my memories',
+                           'show all my notes', 'show all my memories', 'show my content', 'what are my memories',
+                           'what did i save', 'show me what i saved', 'my saved content', 'my documents',
+                           'my websites', 'show everything', 'all my content']
+
+    const isMemoryRequest = memoryKeywords.some(keyword => lowerCaseMessage.includes(keyword))
+
+    if (isMemoryRequest) {
+      // Create a special response with all user content
+      let contentSummary = `Here's a summary of your saved content:\n\n`
+
+      // Add summary counts
+      contentSummary += `**Notes:** ${userContent.notes.length}\n`
+      contentSummary += `**Websites:** ${userContent.websites.length}\n`
+      contentSummary += `**Documents:** ${userContent.documents.length}\n\n`
+
+      // Check if there's any content at all
+      if (userContent.notes.length === 0 && userContent.websites.length === 0 && userContent.documents.length === 0) {
         const assistantMsg: Message = {
           role: 'assistant',
-          content: "You don't have any notes yet. You can create notes in the dashboard."
+          content: "You don't have any saved content yet. You can create notes, save websites, and upload documents in the dashboard."
         }
         setMessages(prev => [...prev, assistantMsg])
         await saveMessage(assistantMsg, conversationId)
         return
       }
 
-      // Format all notes as sources
-      const noteSources = allNotes.map(note => ({
-        type: 'note' as const,
-        id: note.id,
-        title: note.title,
-        content: note.content,
-        space_id: note.space_id
-      }))
+      // Add notes section
+      if (userContent.notes.length > 0) {
+        contentSummary += `## Notes\n\n`
+        userContent.notes.forEach((note, index) => {
+          contentSummary += `**${index + 1}. ${note.title}**\n`
+          contentSummary += `${note.content.substring(0, 150)}${note.content.length > 150 ? '...' : ''}\n`
+          contentSummary += `_Created: ${new Date(note.created_at).toLocaleDateString()}_\n\n`
+        })
+      }
 
-      // Create a response with all notes as sources
+      // Add websites section
+      if (userContent.websites.length > 0) {
+        contentSummary += `## Websites\n\n`
+        userContent.websites.forEach((website, index) => {
+          contentSummary += `**${index + 1}. ${website.title}**\n`
+          contentSummary += `URL: ${website.url}\n`
+          if (website.content) {
+            contentSummary += `${website.content.substring(0, 100)}${website.content.length > 100 ? '...' : ''}\n`
+          }
+          contentSummary += `_Saved: ${new Date(website.created_at).toLocaleDateString()}_\n\n`
+        })
+      }
+
+      // Add documents section
+      if (userContent.documents.length > 0) {
+        contentSummary += `## Documents\n\n`
+        userContent.documents.forEach((document, index) => {
+          contentSummary += `**${index + 1}. ${document.title}**\n`
+          if (document.content) {
+            contentSummary += `${document.content.substring(0, 100)}${document.content.length > 100 ? '...' : ''}\n`
+          }
+          contentSummary += `_Added: ${new Date(document.created_at).toLocaleDateString()}_\n\n`
+        })
+      }
+
+      // Combine all sources
+      const allSources: Message['sources'] = [
+        ...userContent.notes.map(note => ({
+          type: 'note' as const,
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          space_id: note.space_id,
+          created_at: note.created_at
+        })),
+        ...userContent.websites.map(website => ({
+          type: 'website' as const,
+          id: website.id,
+          title: website.title,
+          url: website.url,
+          content: website.content,
+          space_id: website.space_id,
+          created_at: website.created_at
+        })),
+        ...userContent.documents.map(document => ({
+          type: 'document' as const,
+          id: document.id,
+          title: document.title,
+          url: document.document_url,
+          content: document.content,
+          space_id: document.space_id,
+          created_at: document.created_at
+        }))
+      ]
+
       const assistantMsg: Message = {
         role: 'assistant',
-        content: `Here are all your notes (${allNotes.length} total):\n\n${allNotes.map((note, index) => `**${index + 1}. ${note.title}**`).join('\n')}`,
-        sources: noteSources
+        content: contentSummary,
+        sources: allSources
       }
 
       setMessages(prev => [...prev, assistantMsg])
@@ -1114,7 +1395,11 @@ export default function ChatPage() {
                               )}>
                                 <span className="text-[10px]">{message.sources.length}</span>
                               </div>
-                              <span>Sources used to generate this response:</span>
+                              <span>
+                                {message.content.includes('found') && message.content.includes('from') && message.content.includes('item')
+                                  ? 'Sources from this date:'
+                                  : 'Sources used to generate this response:'}
+                              </span>
                             </div>
                             <div className="flex flex-wrap gap-2 sm:gap-2.5">
                               {message.sources.map((source, idx) => (
@@ -1167,7 +1452,14 @@ export default function ChatPage() {
                                 {source.type === 'website' && '🌐'}
                                 {source.type === 'document' && '📄'}
                               </div>
-                              <span className="font-medium truncate max-w-[150px]">{source.title}</span>
+                              <div className="flex flex-col">
+                                <span className="font-medium truncate max-w-[150px]">{source.title}</span>
+                                {message.content.includes('found') && message.content.includes('from') && message.content.includes('item') && (
+                                  <span className="text-[10px] opacity-70 truncate max-w-[150px]">
+                                    {new Date(source.created_at || '').toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
                               {source.url && (
                                 <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5 opacity-70" />
                               )}
