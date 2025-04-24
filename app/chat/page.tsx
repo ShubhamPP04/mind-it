@@ -97,7 +97,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const currentSpaceId = searchParams.get('spaceId')
+  const currentSpaceId = searchParams ? searchParams.get('spaceId') : null
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === 'dark' : false
   const [selectedModel, setSelectedModel] = useState<Model>(() => {
