@@ -1232,10 +1232,38 @@ export default function ChatPage() {
                         {/* Copy button */}
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(message.content);
-                            if (message.id) {
-                              setCopiedMessageId(message.id);
-                              setTimeout(() => setCopiedMessageId(null), 2000);
+                            try {
+                              // Create a temporary textarea element to handle the copy operation
+                              const textarea = document.createElement('textarea');
+                              textarea.value = message.content;
+                              textarea.style.position = 'fixed'; // Make it invisible
+                              textarea.style.opacity = '0';
+                              document.body.appendChild(textarea);
+                              textarea.select();
+
+                              // Execute the copy command
+                              const successful = document.execCommand('copy');
+
+                              // Clean up
+                              document.body.removeChild(textarea);
+
+                              // If execCommand was successful or if clipboard API is available, try that too
+                              if (successful || navigator.clipboard) {
+                                // Also try the modern clipboard API as a backup
+                                navigator.clipboard.writeText(message.content).catch(e => {
+                                  console.log('Clipboard API failed, but execCommand worked:', e);
+                                });
+
+                                // Update UI to show copied state
+                                if (message.id) {
+                                  setCopiedMessageId(message.id);
+                                  setTimeout(() => setCopiedMessageId(null), 2000);
+                                }
+                              } else {
+                                console.error('Copy failed');
+                              }
+                            } catch (err) {
+                              console.error('Failed to copy text: ', err);
                             }
                           }}
                           className={cn(
