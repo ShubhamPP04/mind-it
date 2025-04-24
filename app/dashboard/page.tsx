@@ -1101,16 +1101,19 @@ export default function Dashboard() {
   const handleWebsiteClick = () => {
     setActiveTab('website')
     setNewNote({ title: '', content: '', image_url: '' })
+    setShowNewNote(true)
   }
 
   const handleNoteClick = () => {
     setActiveTab('note')
     setNewNote({ title: '', content: '', image_url: '' })
+    setShowNewNote(true)
   }
 
   const handleDocumentClick = () => {
     setActiveTab('document')
     setNewNote({ title: '', content: '', image_url: '' })
+    setShowNewNote(true)
   }
 
   const handleFetchContent = async () => {
