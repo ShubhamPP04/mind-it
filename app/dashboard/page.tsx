@@ -16,6 +16,7 @@ interface SpeechRecognitionAlternative {
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
+  resultIndex: number;
 }
 
 interface SpeechRecognitionResultList {
@@ -261,26 +262,50 @@ export default function Dashboard() {
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
+        // Store interim results
+        let interimTranscript = '';
+        let finalTranscript = '';
+        let cursorPosition = 0;
+
         recognition.onresult = (event) => {
-          const transcript = Array.from(event.results)
-            .map(result => result[0])
-            .map(result => result.transcript)
-            .join('');
+          // Only process if we're still listening
+          if (!isListening) return;
 
-          // Only update if we're still listening
-          if (isListening) {
-            setNewNote(prev => {
-              // Get cursor position
-              const cursorPos = textareaRef.current?.selectionStart || prev.content.length;
+          // Save cursor position when speech recognition starts
+          if (cursorPosition === 0 && textareaRef.current) {
+            cursorPosition = textareaRef.current.selectionStart || 0;
+          }
 
-              // Insert transcript at cursor position
-              const newContent =
-                prev.content.substring(0, cursorPos) +
-                transcript +
-                prev.content.substring(cursorPos);
+          // Process results
+          interimTranscript = '';
+          finalTranscript = '';
 
-              return { ...prev, content: newContent };
-            });
+          // Get the latest results
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          // Update the note content with both final and interim results
+          setNewNote(prev => {
+            // Insert transcript at saved cursor position
+            const newContent =
+              prev.content.substring(0, cursorPosition) +
+              finalTranscript + interimTranscript +
+              prev.content.substring(cursorPosition);
+
+            return { ...prev, content: newContent };
+          });
+
+          // Update cursor position for next update
+          if (finalTranscript) {
+            cursorPosition += finalTranscript.length;
+            finalTranscript = ''; // Reset final transcript after it's been added
           }
         };
 
@@ -288,29 +313,74 @@ export default function Dashboard() {
           if (isListening) {
             // If we're still supposed to be listening, restart
             recognition.start();
+          } else {
+            // Make sure any final results are properly added to the note
+            if (interimTranscript) {
+              setNewNote(prev => {
+                // Get the current content
+                const currentContent = prev.content;
+
+                // Find and replace the interim transcript with an empty string
+                // This ensures we don't have duplicate text
+                const contentWithoutInterim = currentContent.replace(interimTranscript, '');
+
+                return { ...prev, content: contentWithoutInterim };
+              });
+            }
+
+            // Reset for next time
+            interimTranscript = '';
+            finalTranscript = '';
+            cursorPosition = 0;
           }
         };
 
         recognition.onerror = (event) => {
           console.error('Speech recognition error', event.error);
           setIsListening(false);
+
+          // Reset variables
+          interimTranscript = '';
+          finalTranscript = '';
+          cursorPosition = 0;
         };
 
         setSpeechRecognition(recognition);
       }
     }
-  }, []);
+  }, [isListening]);
 
   // Toggle speech recognition
   const toggleSpeechRecognition = useCallback(() => {
     if (!speechRecognition) return;
 
     if (isListening) {
+      // Stop listening and ensure final transcript is captured
       speechRecognition.stop();
       setIsListening(false);
+
+      // Focus back on the textarea after stopping
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 100);
     } else {
-      speechRecognition.start();
-      setIsListening(true);
+      // Start listening and save current cursor position
+      if (textareaRef.current) {
+        // Focus on textarea first to ensure we have the right cursor position
+        textareaRef.current.focus();
+
+        // Small delay to ensure focus is set
+        setTimeout(() => {
+          speechRecognition.start();
+          setIsListening(true);
+        }, 100);
+      } else {
+        // If no textarea ref, just start
+        speechRecognition.start();
+        setIsListening(true);
+      }
     }
   }, [isListening, speechRecognition]);
 
@@ -2538,6 +2608,18 @@ export default function Dashboard() {
                                     <Mic className="w-4 h-4" />
                                   )}
                                 </button>
+
+                                {/* Voice typing status indicator */}
+                                {isListening && (
+                                  <div
+                                    className={cn(
+                                      "absolute left-3 top-3 px-2 py-1 rounded-md text-xs font-medium animate-pulse",
+                                      isDark ? "bg-red-500/10 text-red-400" : "bg-red-500/10 text-red-600"
+                                    )}
+                                  >
+                                    Listening...
+                                  </div>
+                                )}
                               </div>
 
                               {/* Enhanced AI Generation Animation */}
