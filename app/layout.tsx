@@ -26,13 +26,27 @@ export const metadata: Metadata = {
       url: "/logo.png",
       type: "image/png"
     },
-    shortcut: "/logo.png"
+    shortcut: "/favicon.ico"
   },
   // Explicitly prevent Vercel's default favicon
   other: {
     "msapplication-TileColor": "#000000",
     "msapplication-config": "none",
-    "manifest": "/site.webmanifest"
+    "manifest": "/site.webmanifest",
+    "generator": "Next.js",
+    "applicationName": "Mind It",
+    "referrer": "origin-when-cross-origin",
+    "keywords": ["Mind It", "notes", "knowledge management"],
+    "creator": "Mind It",
+    "publisher": "Mind It",
+    "format-detection": "no"
+  },
+  // Prevent automatic favicon generation
+  metadataBase: new URL('http://localhost:3000'),
+  verification: {
+    other: {
+      "disableVercelFavicon": "true"
+    }
   }
 };
 
@@ -44,8 +58,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Force the browser to use our favicon */}
+        {/* Force the browser to use our favicon and prevent Vercel's default favicon */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+        <link rel="shortcut icon" href="/favicon.ico" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <meta name="msapplication-TileImage" content="/logo.png" />
+        <meta name="msapplication-TileColor" content="#000000" />
+        <meta name="generator" content="Next.js" />
+        <meta name="vercel-favicon" content="disabled" />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
 
