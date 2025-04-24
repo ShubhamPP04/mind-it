@@ -39,7 +39,7 @@ Mind-It features beautifully designed authentication pages with:
 - **Authentication**: Supabase Auth
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **UI Components**: Custom components with [shadcn/ui](https://ui.shadcn.com/) styling
-- **AI Models**: Gemini & OpenRouter integration
+- **AI Models**: Gemini & OpenRouter integration with multiple free models
 - **Storage**: Supabase Storage for images and documents
 - **Animations**: [Framer Motion](https://www.framer.com/motion/)
 
@@ -48,6 +48,28 @@ Mind-It features beautifully designed authentication pages with:
 - Node.js 16+ 
 - Supabase account (free tier works)
 - Gemini API key and/or OpenRouter API key for AI features
+
+## 🤖 AI Models
+
+Mind-It integrates with multiple AI models to provide intelligent assistance:
+
+### Gemini Models
+- **Gemini 2.0 Flash**: Google's latest multimodal model with next-gen features
+
+### OpenRouter Free Models
+- **Llama 4 Scout & Maverick**: Meta's latest Llama models optimized for different use cases
+- **DeepSeek V3**: 685B parameter MoE model with 131K context
+- **Mistral Small 3.1 24B**: 24B parameter model with 128K context window
+- **Llama 3.3 70B**: Latest Llama model with 131K context
+- **Moonlight 16B**: Efficient model with strong reasoning capabilities
+- **MAI DS R1**: Microsoft AI model with strong reasoning capabilities
+- **GLM Z1 & GLM 4 32B**: Powerful 32B parameter models
+- **Kimi VL A3B**: Moonshot AI model with visual language capabilities
+
+To use these models, you'll need to:
+1. Sign up for an [OpenRouter](https://openrouter.ai) account
+2. Get your API key from https://openrouter.ai/keys
+3. Add the key to your `.env.local` file as `NEXT_PUBLIC_OPENROUTER_API_KEY`
 
 ## 🚀 Getting Started
 

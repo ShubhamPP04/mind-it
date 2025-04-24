@@ -55,6 +55,30 @@ const models: Model[] = [
     name: 'moonshotai/moonlight-16b-a3b-instruct:free',
     displayName: 'Moonlight 16B',
     description: 'Efficient 16B model with strong reasoning and instruction following'
+  },
+  {
+    provider: 'openrouter',
+    name: 'microsoft/mai-ds-r1:free',
+    displayName: 'MAI DS R1',
+    description: 'Microsoft AI model with strong reasoning capabilities'
+  },
+  {
+    provider: 'openrouter',
+    name: 'thudm/glm-z1-32b:free',
+    displayName: 'GLM Z1 32B',
+    description: 'Powerful 32B parameter model with excellent performance'
+  },
+  {
+    provider: 'openrouter',
+    name: 'thudm/glm-4-32b:free',
+    displayName: 'GLM 4 32B',
+    description: 'Advanced 32B parameter model with strong reasoning'
+  },
+  {
+    provider: 'openrouter',
+    name: 'moonshotai/kimi-vl-a3b-thinking:free',
+    displayName: 'Kimi VL A3B',
+    description: 'Moonshot AI model with visual language capabilities'
   }
 ];
 
@@ -137,17 +161,26 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
             className={cn(
               "absolute mt-1.5 rounded-xl shadow-xl overflow-hidden z-50 backdrop-blur-sm", // Responsive dropdown
               isMobile
-                ? "top-full right-0 w-[280px] max-w-[95vw]"
+                ? "top-full right-0 w-[280px] max-w-[95vw] max-h-[60vh]"
                 : openRight
-                  ? "top-full right-0 w-[320px]"
-                  : "top-full left-0 w-[320px]",
+                  ? "top-full right-0 w-[320px] max-h-[70vh]"
+                  : "top-full left-0 w-[320px] max-h-[70vh]",
               isDark
                 ? "bg-black/95 border border-white/15 shadow-purple-500/10"
                 : "bg-white/95 border border-black/15 shadow-purple-500/5"
             )}
           >
             <motion.div
-              className="py-1"
+              className={cn(
+                "py-1 overflow-y-auto model-selector-scrollbar",
+                isMobile
+                  ? "max-h-[calc(60vh-2rem)]"
+                  : "max-h-[calc(70vh-2rem)]"
+              )}
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: isDark ? 'rgba(255, 255, 255, 0.2) transparent' : 'rgba(0, 0, 0, 0.2) transparent'
+              }}
               initial="closed"
               animate="open"
               variants={{
