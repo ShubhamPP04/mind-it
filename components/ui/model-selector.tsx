@@ -22,6 +22,12 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
+    name: 'qwen/qwen3-4b:free',
+    displayName: 'Qwen 3 4B',
+    description: 'Qwen 3 4B parameter model, open/free access'
+  },
+  {
+    provider: 'openrouter',
     name: 'meta-llama/llama-4-scout:free',
     displayName: 'Llama 4 Scout',
     description: 'Smaller, faster Llama 4 model with excellent performance'
@@ -334,10 +340,10 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
                     <div className="flex items-center gap-2">
                       <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30">
                         {model.name.includes('gemini') ? <Sparkles className="w-2.5 h-2.5" /> :
-                         model.name.includes('llama') ? <Cpu className="w-2.5 h-2.5" /> :
-                         model.name.includes('mistral') ? <Atom className="w-2.5 h-2.5" /> :
-                         model.name.includes('moonlight') ? <Lightbulb className="w-2.5 h-2.5" /> :
-                         <Brain className="w-2.5 h-2.5" />}
+                          model.name.includes('llama') ? <Cpu className="w-2.5 h-2.5" /> :
+                            model.name.includes('mistral') ? <Atom className="w-2.5 h-2.5" /> :
+                              model.name.includes('moonlight') ? <Lightbulb className="w-2.5 h-2.5" /> :
+                                <Brain className="w-2.5 h-2.5" />}
                       </div>
                       <div className="font-medium">{model.displayName}</div>
                     </div>
