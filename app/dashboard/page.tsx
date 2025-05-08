@@ -1,47 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
-
-// Add SpeechRecognition interfaces for TypeScript
-interface SpeechRecognitionResult {
-  [index: number]: SpeechRecognitionAlternative;
-  length: number;
-  isFinal: boolean;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResultList {
-  [index: number]: SpeechRecognitionResult;
-  length: number;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  onresult: (event: SpeechRecognitionEvent) => void;
-  onerror: (event: any) => void;
-  onend: () => void;
-}
-
-// Add global declarations for browser compatibility
-declare global {
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-}
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from "framer-motion"
@@ -49,7 +8,7 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { BackgroundPaths } from "@/components/ui/background-paths"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { LayoutGrid, List, LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon, Mic, MicOff } from 'lucide-react' // Import new icons
+import { LayoutGrid, List, LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon } from 'lucide-react' // Import new icons
 import { generateNoteContent } from '@/utils/gemini'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
@@ -129,8 +88,6 @@ export default function Dashboard() {
   const [isAIEnabled, setIsAIEnabled] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isImageUploading, setIsImageUploading] = useState(false)
-  const [isListening, setIsListening] = useState(false)
-  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [imageOpacity, setImageOpacity] = useState<number>(0.4)
   const [selectedModel, setSelectedModel] = useState<Model>(() => {
@@ -250,139 +207,7 @@ export default function Dashboard() {
     localStorage.setItem('documentViewMode', documentViewMode)
   }, [documentViewMode])
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Check if browser supports speech recognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        // Store interim results
-        let interimTranscript = '';
-        let finalTranscript = '';
-        let cursorPosition = 0;
-
-        recognition.onresult = (event) => {
-          // Only process if we're still listening
-          if (!isListening) return;
-
-          // Save cursor position when speech recognition starts
-          if (cursorPosition === 0 && textareaRef.current) {
-            cursorPosition = textareaRef.current.selectionStart || 0;
-          }
-
-          // Process results
-          interimTranscript = '';
-          finalTranscript = '';
-
-          // Get the latest results
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript;
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-
-          // Update the note content with both final and interim results
-          setNewNote(prev => {
-            // Insert transcript at saved cursor position
-            const newContent =
-              prev.content.substring(0, cursorPosition) +
-              finalTranscript + interimTranscript +
-              prev.content.substring(cursorPosition);
-
-            return { ...prev, content: newContent };
-          });
-
-          // Update cursor position for next update
-          if (finalTranscript) {
-            cursorPosition += finalTranscript.length;
-            finalTranscript = ''; // Reset final transcript after it's been added
-          }
-        };
-
-        recognition.onend = () => {
-          if (isListening) {
-            // If we're still supposed to be listening, restart
-            recognition.start();
-          } else {
-            // Make sure any final results are properly added to the note
-            if (interimTranscript) {
-              setNewNote(prev => {
-                // Get the current content
-                const currentContent = prev.content;
-
-                // Find and replace the interim transcript with an empty string
-                // This ensures we don't have duplicate text
-                const contentWithoutInterim = currentContent.replace(interimTranscript, '');
-
-                return { ...prev, content: contentWithoutInterim };
-              });
-            }
-
-            // Reset for next time
-            interimTranscript = '';
-            finalTranscript = '';
-            cursorPosition = 0;
-          }
-        };
-
-        recognition.onerror = (event) => {
-          console.error('Speech recognition error', event.error);
-          setIsListening(false);
-
-          // Reset variables
-          interimTranscript = '';
-          finalTranscript = '';
-          cursorPosition = 0;
-        };
-
-        setSpeechRecognition(recognition);
-      }
-    }
-  }, [isListening]);
-
-  // Toggle speech recognition
-  const toggleSpeechRecognition = useCallback(() => {
-    if (!speechRecognition) return;
-
-    if (isListening) {
-      // Stop listening and ensure final transcript is captured
-      speechRecognition.stop();
-      setIsListening(false);
-
-      // Focus back on the textarea after stopping
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-        }
-      }, 100);
-    } else {
-      // Start listening and save current cursor position
-      if (textareaRef.current) {
-        // Focus on textarea first to ensure we have the right cursor position
-        textareaRef.current.focus();
-
-        // Small delay to ensure focus is set
-        setTimeout(() => {
-          speechRecognition.start();
-          setIsListening(true);
-        }, 100);
-      } else {
-        // If no textarea ref, just start
-        speechRecognition.start();
-        setIsListening(true);
-      }
-    }
-  }, [isListening, speechRecognition]);
 
   // Initialize the app
   useEffect(() => {
@@ -2579,47 +2404,14 @@ export default function Dashboard() {
                                   placeholder={isAIEnabled ? "Press Enter to generate with AI..." : "Write your note..."}
                                   rows={6}
                                   className={cn(
-                                    "w-full pl-10 pr-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
+                                    "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
                                     isDark
                                       ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
                                       : "border-black/10 focus:border-black/20 placeholder:text-black/30"
                                   )}
                                 />
 
-                                {/* Voice typing button - positioned on the left with icon only */}
-                                <button
-                                  type="button"
-                                  onClick={toggleSpeechRecognition}
-                                  className={cn(
-                                    "absolute left-3 bottom-3 p-2 rounded-full transition-all",
-                                    isListening
-                                      ? (isDark ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-red-500/20 text-red-600 animate-pulse")
-                                      : (isDark ? "bg-white/10 hover:bg-white/15 text-white/80" : "bg-black/10 hover:bg-black/15 text-black/80")
-                                  )}
-                                  title={isListening ? "Stop voice typing" : "Start voice typing"}
-                                >
-                                  {isListening ? (
-                                    <div className="relative">
-                                      <MicOff className="w-4 h-4" />
-                                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500"></span>
-                                    </div>
-                                  ) : (
-                                    <Mic className="w-4 h-4" />
-                                  )}
-                                </button>
 
-                                {/* Voice typing status indicator */}
-                                {isListening && (
-                                  <div
-                                    className={cn(
-                                      "absolute left-3 top-3 px-2 py-1 rounded-md text-xs font-medium animate-pulse",
-                                      isDark ? "bg-red-500/10 text-red-400" : "bg-red-500/10 text-red-600"
-                                    )}
-                                  >
-                                    Listening...
-                                  </div>
-                                )}
                               </div>
 
                               {/* Enhanced AI Generation Animation */}
