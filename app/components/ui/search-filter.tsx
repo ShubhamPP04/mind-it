@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 interface SearchAndFilterProps {
   onSearch: (query: string) => void
   onFilter: (filters: FilterOptions) => void
+  initialFilters?: FilterOptions
   isDark?: boolean
   className?: string
 }
@@ -16,20 +17,29 @@ interface SearchAndFilterProps {
 export interface FilterOptions {
   dateRange: 'all' | 'today' | 'week' | 'month'
   sortBy: 'newest' | 'oldest' | 'alphabetical'
+  contentType?: 'all' | 'note' | 'website' | 'document'
 }
 
 export function SearchAndFilter({
   onSearch,
   onFilter,
+  initialFilters,
   isDark = false,
   className,
 }: SearchAndFilterProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [filters, setFilters] = useState<FilterOptions>({
+  const [filters, setFilters] = useState<FilterOptions>(initialFilters || {
     dateRange: 'all',
     sortBy: 'newest'
   })
+
+  // Update filters when initialFilters change (e.g., when switching tabs)
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(initialFilters)
+    }
+  }, [initialFilters])
   const { resolvedTheme } = useTheme()
   const filterRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)

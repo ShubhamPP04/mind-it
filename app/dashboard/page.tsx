@@ -138,10 +138,101 @@ export default function Dashboard() {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const longPressDuration = 500; // ms
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    dateRange: 'all',
-    sortBy: 'newest'
+
+  // Create separate filter options for each content type
+  const [allFilterOptions, setAllFilterOptions] = useState<FilterOptions>(() => {
+    // Try to load filter options from localStorage
+    if (typeof window !== 'undefined') {
+      const storedFilters = localStorage.getItem('filterOptions_all')
+      if (storedFilters) {
+        try {
+          return JSON.parse(storedFilters) as FilterOptions
+        } catch (e) {
+          console.error('Error parsing stored filter options:', e)
+        }
+      }
+    }
+    // Default filter options if none are stored
+    return {
+      dateRange: 'all',
+      sortBy: 'newest',
+      contentType: 'all'
+    }
   })
+
+  const [noteFilterOptions, setNoteFilterOptions] = useState<FilterOptions>(() => {
+    // Try to load filter options from localStorage
+    if (typeof window !== 'undefined') {
+      const storedFilters = localStorage.getItem('filterOptions_note')
+      if (storedFilters) {
+        try {
+          return JSON.parse(storedFilters) as FilterOptions
+        } catch (e) {
+          console.error('Error parsing stored filter options:', e)
+        }
+      }
+    }
+    // Default filter options if none are stored
+    return {
+      dateRange: 'all',
+      sortBy: 'newest',
+      contentType: 'note'
+    }
+  })
+
+  const [websiteFilterOptions, setWebsiteFilterOptions] = useState<FilterOptions>(() => {
+    // Try to load filter options from localStorage
+    if (typeof window !== 'undefined') {
+      const storedFilters = localStorage.getItem('filterOptions_website')
+      if (storedFilters) {
+        try {
+          return JSON.parse(storedFilters) as FilterOptions
+        } catch (e) {
+          console.error('Error parsing stored filter options:', e)
+        }
+      }
+    }
+    // Default filter options if none are stored
+    return {
+      dateRange: 'all',
+      sortBy: 'newest',
+      contentType: 'website'
+    }
+  })
+
+  const [documentFilterOptions, setDocumentFilterOptions] = useState<FilterOptions>(() => {
+    // Try to load filter options from localStorage
+    if (typeof window !== 'undefined') {
+      const storedFilters = localStorage.getItem('filterOptions_document')
+      if (storedFilters) {
+        try {
+          return JSON.parse(storedFilters) as FilterOptions
+        } catch (e) {
+          console.error('Error parsing stored filter options:', e)
+        }
+      }
+    }
+    // Default filter options if none are stored
+    return {
+      dateRange: 'all',
+      sortBy: 'newest',
+      contentType: 'document'
+    }
+  })
+
+  // Helper function to get the current filter options based on active tab
+  const getActiveFilterOptions = (): FilterOptions => {
+    switch (activeTab) {
+      case 'note':
+        return noteFilterOptions
+      case 'website':
+        return websiteFilterOptions
+      case 'document':
+        return documentFilterOptions
+      default:
+        return allFilterOptions
+    }
+  }
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([])
   const [filteredWebsites, setFilteredWebsites] = useState<Website[]>([])
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([])
@@ -206,6 +297,31 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('documentViewMode', documentViewMode)
   }, [documentViewMode])
+
+  // Save filter options to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('filterOptions_all', JSON.stringify(allFilterOptions))
+  }, [allFilterOptions])
+
+  useEffect(() => {
+    localStorage.setItem('filterOptions_note', JSON.stringify(noteFilterOptions))
+  }, [noteFilterOptions])
+
+  useEffect(() => {
+    localStorage.setItem('filterOptions_website', JSON.stringify(websiteFilterOptions))
+  }, [websiteFilterOptions])
+
+  useEffect(() => {
+    localStorage.setItem('filterOptions_document', JSON.stringify(documentFilterOptions))
+  }, [documentFilterOptions])
+
+  // Force re-render of the SearchAndFilter component when the active tab changes
+  // This is needed because we need to update the UI to show the correct filter options
+  const [filterKey, setFilterKey] = useState(0)
+  useEffect(() => {
+    // Increment the key to force a re-render of the SearchAndFilter component
+    setFilterKey(prev => prev + 1)
+  }, [activeTab])
 
 
 
@@ -1715,6 +1831,9 @@ export default function Dashboard() {
 
   // Apply search and filters to the items
   useEffect(() => {
+    // Determine which filter options to use based on the active tab
+    const isAllTab = activeTab === 'all';
+
     // Filter notes
     const searchFilterNotes = notes.filter(note => {
       // Search filtering
@@ -1724,19 +1843,21 @@ export default function Dashboard() {
 
       // Date filtering
       let matchesDate = true;
-      if (filterOptions.dateRange !== 'all') {
+      const filterToUse = isAllTab ? allFilterOptions : noteFilterOptions;
+
+      if (filterToUse.dateRange !== 'all') {
         const noteDate = new Date(note.created_at);
         const today = new Date();
         const todayStart = new Date(today.setHours(0, 0, 0, 0));
 
-        if (filterOptions.dateRange === 'today') {
+        if (filterToUse.dateRange === 'today') {
           matchesDate = noteDate >= todayStart;
-        } else if (filterOptions.dateRange === 'week') {
+        } else if (filterToUse.dateRange === 'week') {
           const weekStart = new Date(today);
           weekStart.setDate(today.getDate() - today.getDay());
           weekStart.setHours(0, 0, 0, 0);
           matchesDate = noteDate >= weekStart;
-        } else if (filterOptions.dateRange === 'month') {
+        } else if (filterToUse.dateRange === 'month') {
           const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           matchesDate = noteDate >= monthStart;
         }
@@ -1747,11 +1868,13 @@ export default function Dashboard() {
 
     // Sort notes
     let sortedNotes = [...searchFilterNotes];
-    if (filterOptions.sortBy === 'newest') {
+    const noteFilterToUse = isAllTab ? allFilterOptions : noteFilterOptions;
+
+    if (noteFilterToUse.sortBy === 'newest') {
       sortedNotes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (filterOptions.sortBy === 'oldest') {
+    } else if (noteFilterToUse.sortBy === 'oldest') {
       sortedNotes.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    } else if (filterOptions.sortBy === 'alphabetical') {
+    } else if (noteFilterToUse.sortBy === 'alphabetical') {
       sortedNotes.sort((a, b) => a.title.localeCompare(b.title));
     }
 
@@ -1767,19 +1890,21 @@ export default function Dashboard() {
 
       // Date filtering
       let matchesDate = true;
-      if (filterOptions.dateRange !== 'all') {
+      const filterToUse = isAllTab ? allFilterOptions : websiteFilterOptions;
+
+      if (filterToUse.dateRange !== 'all') {
         const websiteDate = new Date(website.created_at);
         const today = new Date();
         const todayStart = new Date(today.setHours(0, 0, 0, 0));
 
-        if (filterOptions.dateRange === 'today') {
+        if (filterToUse.dateRange === 'today') {
           matchesDate = websiteDate >= todayStart;
-        } else if (filterOptions.dateRange === 'week') {
+        } else if (filterToUse.dateRange === 'week') {
           const weekStart = new Date(today);
           weekStart.setDate(today.getDate() - today.getDay());
           weekStart.setHours(0, 0, 0, 0);
           matchesDate = websiteDate >= weekStart;
-        } else if (filterOptions.dateRange === 'month') {
+        } else if (filterToUse.dateRange === 'month') {
           const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           matchesDate = websiteDate >= monthStart;
         }
@@ -1790,11 +1915,13 @@ export default function Dashboard() {
 
     // Sort websites
     let sortedWebsites = [...searchFilterWebsites];
-    if (filterOptions.sortBy === 'newest') {
+    const websiteFilterToUse = isAllTab ? allFilterOptions : websiteFilterOptions;
+
+    if (websiteFilterToUse.sortBy === 'newest') {
       sortedWebsites.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (filterOptions.sortBy === 'oldest') {
+    } else if (websiteFilterToUse.sortBy === 'oldest') {
       sortedWebsites.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    } else if (filterOptions.sortBy === 'alphabetical') {
+    } else if (websiteFilterToUse.sortBy === 'alphabetical') {
       sortedWebsites.sort((a, b) => a.title.localeCompare(b.title));
     }
 
@@ -1809,19 +1936,21 @@ export default function Dashboard() {
 
       // Date filtering
       let matchesDate = true;
-      if (filterOptions.dateRange !== 'all') {
+      const filterToUse = isAllTab ? allFilterOptions : documentFilterOptions;
+
+      if (filterToUse.dateRange !== 'all') {
         const documentDate = new Date(document.created_at);
         const today = new Date();
         const todayStart = new Date(today.setHours(0, 0, 0, 0));
 
-        if (filterOptions.dateRange === 'today') {
+        if (filterToUse.dateRange === 'today') {
           matchesDate = documentDate >= todayStart;
-        } else if (filterOptions.dateRange === 'week') {
+        } else if (filterToUse.dateRange === 'week') {
           const weekStart = new Date(today);
           weekStart.setDate(today.getDate() - today.getDay());
           weekStart.setHours(0, 0, 0, 0);
           matchesDate = documentDate >= weekStart;
-        } else if (filterOptions.dateRange === 'month') {
+        } else if (filterToUse.dateRange === 'month') {
           const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           matchesDate = documentDate >= monthStart;
         }
@@ -1832,16 +1961,18 @@ export default function Dashboard() {
 
     // Sort documents
     let sortedDocuments = [...searchFilterDocuments];
-    if (filterOptions.sortBy === 'newest') {
+    const documentFilterToUse = isAllTab ? allFilterOptions : documentFilterOptions;
+
+    if (documentFilterToUse.sortBy === 'newest') {
       sortedDocuments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (filterOptions.sortBy === 'oldest') {
+    } else if (documentFilterToUse.sortBy === 'oldest') {
       sortedDocuments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    } else if (filterOptions.sortBy === 'alphabetical') {
+    } else if (documentFilterToUse.sortBy === 'alphabetical') {
       sortedDocuments.sort((a, b) => a.title.localeCompare(b.title));
     }
 
     setFilteredDocuments(sortedDocuments);
-  }, [notes, websites, documents, searchQuery, filterOptions]);
+  }, [notes, websites, documents, searchQuery, noteFilterOptions, websiteFilterOptions, documentFilterOptions, allFilterOptions, activeTab]);
 
   // Handle search and filter
   const handleSearch = (query: string) => {
@@ -1849,7 +1980,22 @@ export default function Dashboard() {
   };
 
   const handleFilter = (options: FilterOptions) => {
-    setFilterOptions(options);
+    // Set the appropriate filter options based on the active tab
+    switch (activeTab) {
+      case 'note':
+        setNoteFilterOptions(options);
+        break;
+      case 'website':
+        setWebsiteFilterOptions(options);
+        break;
+      case 'document':
+        setDocumentFilterOptions(options);
+        break;
+      default:
+        setAllFilterOptions(options);
+        break;
+    }
+    // Filter options are saved to localStorage via the useEffect hooks
   };
 
   if (!mounted || loading) {
@@ -2599,8 +2745,10 @@ export default function Dashboard() {
                   {/* Search and Filter */}
                   {/* Global Search and Filter (Toggle buttons removed from here) */}
                   <SearchAndFilter
+                    key={filterKey} // Force re-render when active tab changes
                     onSearch={handleSearch}
                     onFilter={handleFilter}
+                    initialFilters={getActiveFilterOptions()}
                     isDark={isDark}
                     className="mt-4"
                   />
@@ -3396,10 +3544,26 @@ export default function Dashboard() {
                           <button
                             onClick={() => {
                               setSearchQuery('');
-                              setFilterOptions({
+                              // Reset the appropriate filter options based on the active tab
+                              const defaultFilters: FilterOptions = {
                                 dateRange: 'all',
                                 sortBy: 'newest'
-                              });
+                              };
+
+                              switch (activeTab) {
+                                case 'note':
+                                  setNoteFilterOptions(defaultFilters);
+                                  break;
+                                case 'website':
+                                  setWebsiteFilterOptions(defaultFilters);
+                                  break;
+                                case 'document':
+                                  setDocumentFilterOptions(defaultFilters);
+                                  break;
+                                default:
+                                  setAllFilterOptions(defaultFilters);
+                                  break;
+                              }
                             }}
                             className={cn(
                               "mt-2 px-4 py-2 rounded-md transition-colors text-sm font-medium border",
