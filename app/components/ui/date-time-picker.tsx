@@ -20,7 +20,9 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
   // Update the date state when the value prop changes
   useEffect(() => {
     if (value) {
-      setDate(new Date(value))
+      const newDate = new Date(value)
+      console.log('Value prop changed:', value, 'New date:', newDate.toLocaleString())
+      setDate(newDate)
     }
   }, [value])
 
@@ -56,8 +58,17 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
 
   // Handle date change
   const handleDateChange = (newDate: Date) => {
-    setDate(newDate)
-    onChange(formatDateForInput(newDate))
+    // Create a new Date object to ensure state updates properly
+    const updatedDate = new Date(newDate)
+
+    // Update the local state
+    setDate(updatedDate)
+
+    // Call the onChange callback with the formatted date
+    onChange(formatDateForInput(updatedDate))
+
+    // Log for debugging
+    console.log('Date updated:', updatedDate.toLocaleString(), 'Hours:', updatedDate.getHours(), 'Minutes:', updatedDate.getMinutes())
   }
 
   // Get days in month
@@ -116,14 +127,30 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
 
   // Handle time change
   const handleHourChange = (hour: number) => {
-    const newDate = new Date(date)
+    // Create a new Date object to avoid reference issues
+    const newDate = new Date(date.getTime())
+
+    // Set the hours
     newDate.setHours(hour)
+
+    // Log for debugging
+    console.log('Hour changed to:', hour, 'New date:', newDate.toLocaleString())
+
+    // Update the date
     handleDateChange(newDate)
   }
 
   const handleMinuteChange = (minute: number) => {
-    const newDate = new Date(date)
+    // Create a new Date object to avoid reference issues
+    const newDate = new Date(date.getTime())
+
+    // Set the minutes
     newDate.setMinutes(minute)
+
+    // Log for debugging
+    console.log('Minute changed to:', minute, 'New date:', newDate.toLocaleString())
+
+    // Update the date
     handleDateChange(newDate)
   }
 
@@ -327,6 +354,7 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                               newHour24 = newHour12 === 12 ? 0 : newHour12;
                             }
 
+                            console.log('Hour increment: Current:', currentHour24, 'New:', newHour24);
                             handleHourChange(newHour24);
                           }}
                           className={cn(
@@ -368,6 +396,7 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                               newHour24 = newHour12 === 12 ? 0 : newHour12;
                             }
 
+                            console.log('Hour decrement: Current:', currentHour24, 'New:', newHour24);
                             handleHourChange(newHour24);
                           }}
                           className={cn(
@@ -398,6 +427,7 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                             // Increment by 1 minute
                             let newMinutes = (currentMinutes + 1) % 60;
 
+                            console.log('Minute increment: Current:', currentMinutes, 'New:', newMinutes);
                             handleMinuteChange(newMinutes);
                           }}
                           className={cn(
@@ -425,6 +455,7 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                             // Decrement by 1 minute
                             let newMinutes = (currentMinutes - 1 + 60) % 60;
 
+                            console.log('Minute decrement: Current:', currentMinutes, 'New:', newMinutes);
                             handleMinuteChange(newMinutes);
                           }}
                           className={cn(
