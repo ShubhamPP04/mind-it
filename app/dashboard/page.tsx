@@ -8,7 +8,8 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { BackgroundPaths } from "@/components/ui/background-paths"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { LayoutGrid, List, LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon } from 'lucide-react' // Import new icons
+import { LayoutGrid, List, LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon, Inbox, Clock } from 'lucide-react' // Import new icons
+import { DateTimePicker } from '../components/ui/date-time-picker'
 import { generateNoteContent } from '@/utils/gemini'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
@@ -123,9 +124,15 @@ export default function Dashboard() {
   const { resolvedTheme } = useTheme()
   const isDark = mounted ? resolvedTheme === "dark" : false
   const supabase = createClient()
-  const [activeTab, setActiveTab] = useState<'all' | 'website' | 'note' | 'document'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'website' | 'note' | 'document' | 'inbox'>('all')
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [documentFile, setDocumentFile] = useState<File | null>(null)
+  const [inboxMessage, setInboxMessage] = useState('')
+  const [scheduledDate, setScheduledDate] = useState<string>(() => {
+    // Default to current date and time
+    const now = new Date()
+    return now.toISOString().slice(0, 16) // Format: YYYY-MM-DDThh:mm
+  })
   const [websites, setWebsites] = useState<Website[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
@@ -739,6 +746,13 @@ export default function Dashboard() {
     }
   }
 
+  const handleShowInbox = () => {
+    console.log('Showing inbox')
+    // Add inbox functionality here
+    // For now, we'll just navigate to a placeholder route
+    router.push('/inbox')
+  }
+
   const handleNewNote = () => {
     setEditingNote(null)
     setNewNote({ title: '', content: '', image_url: '' })
@@ -862,6 +876,47 @@ export default function Dashboard() {
 
       // Handle different types of content based on active tab
       switch (activeTab) {
+        case 'inbox':
+          if (!inboxMessage.trim()) {
+            setError('Please enter a message for your inbox')
+            return
+          }
+
+          // Convert the scheduled date string to a Date object
+          const scheduledDateTime = new Date(scheduledDate)
+
+          const inboxData = {
+            message: inboxMessage,
+            scheduled_date: scheduledDateTime.toISOString(),
+            user_id: user.id,
+            space_id: selectedSpace.id,
+            created_at: new Date().toISOString()
+          }
+
+          console.log('Saving inbox message:', inboxData)
+          const { data: inboxResult, error: inboxError } = await supabase
+            .from('inbox_messages')
+            .insert(inboxData)
+            .select()
+            .single()
+
+          if (inboxError) {
+            console.error('Error saving inbox message:', inboxError)
+            setError('Failed to save inbox message. Please try again.')
+            return
+          }
+
+          // Reset form and close it
+          setInboxMessage('')
+          setShowNewNote(false)
+          console.log('Inbox message saved successfully')
+
+          // Keep the inbox tab active
+          setActiveTab('inbox')
+
+          // Show success message
+          setError(null)
+          break;
         case 'website':
           if (!websiteUrl) {
             setError('Please enter a website URL')
@@ -1230,6 +1285,12 @@ export default function Dashboard() {
 
   const handleDocumentClick = () => {
     setActiveTab('document')
+    setNewNote({ title: '', content: '', image_url: '' })
+    setShowNewNote(true)
+  }
+
+  const handleInboxClick = () => {
+    setActiveTab('inbox')
     setNewNote({ title: '', content: '', image_url: '' })
     setShowNewNote(true)
   }
@@ -1822,6 +1883,24 @@ export default function Dashboard() {
     }
   }, [selectedSpace, notes, websites, documents]);
 
+  // Check for tab parameter in URL
+  useEffect(() => {
+    if (mounted) {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+
+      if (tabParam && ['note', 'website', 'document', 'inbox', 'all'].includes(tabParam)) {
+        setActiveTab(tabParam as 'note' | 'website' | 'document' | 'inbox' | 'all');
+
+        // If tab is inbox, open the form
+        if (tabParam === 'inbox') {
+          setShowNewNote(true);
+          handleInboxClick();
+        }
+      }
+    }
+  }, [mounted]);
+
   // Initialize filtered arrays when notes, websites, or documents change
   useEffect(() => {
     setFilteredNotes(notes);
@@ -2043,6 +2122,7 @@ export default function Dashboard() {
         <Navbar
           isDark={isDark}
           onStartChat={handleStartChat}
+          onShowInbox={handleShowInbox}
           onSignOut={handleSignOut}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
@@ -2264,6 +2344,28 @@ export default function Dashboard() {
                           <div className="text-sm opacity-60">Upload a PDF or other document</div>
                         </div>
                       </button>
+
+                      <button
+                        onClick={handleInboxClick}
+                        className={cn(
+                            "w-full p-3 sm:p-4 rounded-lg border flex items-center gap-3 transition-colors",
+                          isDark
+                            ? "border-white/10 hover:bg-white/5"
+                            : "border-black/10 hover:bg-black/5",
+                          activeTab === 'inbox' && (isDark ? "bg-white/5" : "bg-black/5")
+                        )}
+                      >
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          isDark ? "bg-white/10" : "bg-black/10"
+                        )}>
+                          <Inbox className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">Inbox</div>
+                          <div className="text-sm opacity-60">Schedule a message for later</div>
+                        </div>
+                      </button>
                     </div>
 
                       {/* Right Column - Content */}
@@ -2317,6 +2419,56 @@ export default function Dashboard() {
                                   </p>
                             </div>
                               </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeTab === 'inbox' && (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label className={cn(
+                                "block text-sm font-medium",
+                                isDark ? "text-white/70" : "text-black/70"
+                              )}>
+                                Message
+                              </label>
+                              <textarea
+                                value={inboxMessage}
+                                onChange={(e) => setInboxMessage(e.target.value)}
+                                placeholder="Enter your message here..."
+                                rows={4}
+                                className={cn(
+                                  "w-full px-3 py-2 rounded-lg border bg-transparent outline-none transition-colors resize-none",
+                                  isDark
+                                    ? "border-white/10 focus:border-white/20 placeholder:text-white/30"
+                                    : "border-black/10 focus:border-black/20 placeholder:text-black/30"
+                                )}
+                              />
+                            </div>
+
+                            <div className="space-y-3">
+                              <label className={cn(
+                                "block text-sm font-medium",
+                                isDark ? "text-white/70" : "text-black/70"
+                              )}>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>Schedule Date & Time</span>
+                                </div>
+                              </label>
+
+                              <DateTimePicker
+                                value={scheduledDate}
+                                onChange={setScheduledDate}
+                                isDark={isDark}
+                              />
+
+                              <p className={cn(
+                                "text-xs",
+                                isDark ? "text-white/50" : "text-black/50"
+                              )}>
+                                Message will appear in your inbox at the scheduled time
+                              </p>
                             </div>
                           </div>
                         )}
@@ -2688,6 +2840,7 @@ export default function Dashboard() {
                             disabled={
                               activeTab === 'website' ? !websiteUrl :
                               activeTab === 'document' ? !documentFile :
+                              activeTab === 'inbox' ? !inboxMessage.trim() :
                               !newNote.content.trim()
                             }
                     className={cn(
@@ -2716,7 +2869,8 @@ export default function Dashboard() {
                         activeTab === 'all' ? 'All' :
                         activeTab === 'note' ? 'Notes' :
                         activeTab === 'website' ? 'Websites' :
-                        'Documents'
+                        activeTab === 'document' ? 'Documents' :
+                        'Inbox'
                       }
                       onItemClick={(label) => {
                         switch (label) {
@@ -2731,6 +2885,9 @@ export default function Dashboard() {
                             break
                           case 'Documents':
                             setActiveTab('document')
+                            break
+                          case 'Inbox':
+                            setActiveTab('inbox')
                             break
                         }
                       }}

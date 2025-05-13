@@ -158,6 +158,23 @@
     scrollbar-width: none;  /* Firefox */
   }
 
+  /* Custom styling for datetime picker */
+  .calendar-picker-custom::-webkit-calendar-picker-indicator {
+    filter: invert(0.5);
+    opacity: 0.7;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .calendar-picker-custom::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  .dark .calendar-picker-custom::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+  }
+
   .animate-rainbow {
     animation: rainbow 4s linear infinite;
   }

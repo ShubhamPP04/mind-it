@@ -3,7 +3,7 @@
 import React, { useState } from "react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { LogOut, MessageSquarePlus, Menu, User, ChevronDown, Settings, Sparkle, Star, Bot, Zap, Brain, Moon, Sun } from 'lucide-react'
+import { LogOut, MessageSquarePlus, Menu, User, ChevronDown, Settings, Sparkle, Star, Bot, Zap, Brain, Moon, Sun, Inbox } from 'lucide-react'
 import { useTheme } from "next-themes"
 import { useUser } from '@/contexts/UserContext'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -13,6 +13,7 @@ interface NavbarProps {
   isDark?: boolean
   onStartChat?: () => void
   onShowNotes?: () => void
+  onShowInbox?: () => void
   onSignOut?: () => void
   onToggleSidebar?: () => void
   isSidebarOpen?: boolean
@@ -23,6 +24,7 @@ export function Navbar({
   className,
   isDark = false,
   onStartChat,
+  onShowInbox,
   onSignOut,
   onToggleSidebar,
   isSidebarOpen = true,
@@ -124,6 +126,40 @@ export function Navbar({
               "group-hover:translate-x-0.5"
             )}>Memory</span>
           </button>
+
+          <button
+            onClick={(e) => {
+              console.log('Inbox button clicked')
+              onShowInbox?.()
+            }}
+            className={cn(
+              "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md transition-all duration-300 text-xs sm:text-sm",
+              "border relative overflow-hidden group whitespace-nowrap",
+              isDark
+                ? "border-blue-700/40 text-blue-300"
+                : "border-blue-300 text-blue-700"
+            )}
+          >
+            <div className={cn(
+              "absolute inset-0 w-0 h-full transition-all duration-300 ease-out group-hover:w-full -z-10",
+              isDark
+                ? "bg-blue-900/30"
+                : "bg-blue-100/80",
+              "origin-left"
+            )} />
+            <div className="relative z-10 transition-all duration-300 w-3 sm:w-3.5 h-3 sm:h-3.5 group-hover:translate-x-0.5 group-hover:scale-110">
+              <Inbox className={cn(
+                "w-3 h-3 sm:w-3.5 sm:h-3.5",
+                isDark ? "text-blue-300" : "text-blue-700"
+              )} />
+            </div>
+            <span className={cn(
+              "font-medium relative z-10 transition-all duration-300",
+              "group-hover:translate-x-0.5"
+            )}>Inbox</span>
+          </button>
+
+
           <button
             onClick={handleThemeChange}
             className={cn(
