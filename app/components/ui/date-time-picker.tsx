@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { Calendar, Clock, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { Calendar, Clock, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronUp, ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface DateTimePickerProps {
@@ -15,18 +15,26 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
   const [isOpen, setIsOpen] = useState(false)
   const [date, setDate] = useState<Date>(() => value ? new Date(value) : new Date())
   const [view, setView] = useState<'date' | 'time'>('date')
+  const [isUpdating, setIsUpdating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const isInternalChangeRef = useRef(false)
 
-  // Update the date state when the value prop changes
+  // Update the date state when the value prop changes (only for external changes)
   useEffect(() => {
-    if (value) {
+    if (value && !isInternalChangeRef.current) {
       const newDate = new Date(value)
-      console.log('Value prop changed:', value, 'New date:', newDate.toLocaleString())
-      setDate(newDate)
+      // Only update if the date is actually different to avoid infinite loops
+      const timeDiff = Math.abs(newDate.getTime() - date.getTime())
+      if (timeDiff > 100) { // 100ms tolerance to avoid micro-differences
+        console.log('External value prop changed:', value, 'Setting internal date to:', newDate.toLocaleString())
+        setDate(newDate)
+      }
     }
-  }, [value])
+    // Reset the flag after processing
+    isInternalChangeRef.current = false
+  }, [value, date])
 
-  // Close the picker when clicking outside
+  // Close the picker when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -34,19 +42,27 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
       }
     }
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
     document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
 
   // Format date for the input value
-  const formatDateForInput = (date: Date) => {
+  const formatDateForInput = useCallback((date: Date) => {
     return date.toISOString().slice(0, 16)
-  }
+  }, [])
 
   // Format date for display
-  const formatDateForDisplay = (date: Date) => {
+  const formatDateForDisplay = useCallback((date: Date) => {
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -54,12 +70,18 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
       hour: 'numeric',
       minute: '2-digit'
     })
-  }
+  }, [])
 
-  // Handle date change
-  const handleDateChange = (newDate: Date) => {
+  // Handle date change with improved state management
+  const handleDateChange = useCallback((newDate: Date) => {
+    // Mark this as an internal change to prevent useEffect from overriding it
+    isInternalChangeRef.current = true
+
+    // Show updating state
+    setIsUpdating(true)
+
     // Create a new Date object to ensure state updates properly
-    const updatedDate = new Date(newDate)
+    const updatedDate = new Date(newDate.getTime())
 
     // Update the local state
     setDate(updatedDate)
@@ -68,26 +90,26 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
     onChange(formatDateForInput(updatedDate))
 
     // Log for debugging
-    console.log('Date updated:', updatedDate.toLocaleString(), 'Hours:', updatedDate.getHours(), 'Minutes:', updatedDate.getMinutes())
-  }
+    console.log('Internal date change:', updatedDate.toLocaleString(), 'Hours:', updatedDate.getHours(), 'Minutes:', updatedDate.getMinutes())
 
-  // Get days in month
-  const getDaysInMonth = (year: number, month: number) => {
+    // Clear updating state after a brief delay
+    setTimeout(() => setIsUpdating(false), 200)
+  }, [onChange, formatDateForInput])
+
+  // Calendar utility functions
+  const getDaysInMonth = useCallback((year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate()
-  }
+  }, [])
 
-  // Get day of week for first day of month
-  const getFirstDayOfMonth = (year: number, month: number) => {
+  const getFirstDayOfMonth = useCallback((year: number, month: number) => {
     return new Date(year, month, 1).getDay()
-  }
+  }, [])
 
-  // Generate calendar days
-  const generateCalendarDays = () => {
+  const generateCalendarDays = useCallback(() => {
     const year = date.getFullYear()
     const month = date.getMonth()
     const daysInMonth = getDaysInMonth(year, month)
     const firstDayOfMonth = getFirstDayOfMonth(year, month)
-    const currentDate = date.getDate()
 
     const days = []
 
@@ -102,74 +124,146 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
     }
 
     return days
-  }
+  }, [date, getDaysInMonth, getFirstDayOfMonth])
 
   // Handle month navigation
-  const handlePrevMonth = () => {
-    const newDate = new Date(date)
+  const handlePrevMonth = useCallback(() => {
+    const newDate = new Date(date.getTime())
     newDate.setMonth(newDate.getMonth() - 1)
-    setDate(newDate)
-  }
+    handleDateChange(newDate)
+  }, [date, handleDateChange])
 
-  const handleNextMonth = () => {
-    const newDate = new Date(date)
+  const handleNextMonth = useCallback(() => {
+    const newDate = new Date(date.getTime())
     newDate.setMonth(newDate.getMonth() + 1)
-    setDate(newDate)
-  }
+    handleDateChange(newDate)
+  }, [date, handleDateChange])
 
   // Handle day selection
-  const handleDaySelect = (day: number) => {
-    const newDate = new Date(date)
+  const handleDaySelect = useCallback((day: number) => {
+    const newDate = new Date(date.getTime())
     newDate.setDate(day)
     handleDateChange(newDate)
     setView('time')
-  }
+  }, [date, handleDateChange])
 
-  // Handle time change
-  const handleHourChange = (hour: number) => {
-    // Create a new Date object to avoid reference issues
+  // Improved time handling functions with precise increment/decrement
+  const incrementHour = useCallback(() => {
+    // Mark as internal change first
+    isInternalChangeRef.current = true
+
     const newDate = new Date(date.getTime())
+    const currentHour = newDate.getHours()
+    const newHour = (currentHour + 1) % 24
 
-    // Set the hours
-    newDate.setHours(hour)
-
-    // Log for debugging
-    console.log('Hour changed to:', hour, 'New date:', newDate.toLocaleString())
-
-    // Update the date
+    newDate.setHours(newHour, newDate.getMinutes(), 0, 0) // Reset seconds and milliseconds
+    console.log('Hour incremented:', currentHour, '→', newHour, 'Full time:', newDate.toLocaleTimeString())
     handleDateChange(newDate)
-  }
+  }, [date, handleDateChange])
 
-  const handleMinuteChange = (minute: number) => {
-    // Create a new Date object to avoid reference issues
+  const decrementHour = useCallback(() => {
+    // Mark as internal change first
+    isInternalChangeRef.current = true
+
     const newDate = new Date(date.getTime())
+    const currentHour = newDate.getHours()
+    const newHour = (currentHour - 1 + 24) % 24
 
-    // Set the minutes
-    newDate.setMinutes(minute)
-
-    // Log for debugging
-    console.log('Minute changed to:', minute, 'New date:', newDate.toLocaleString())
-
-    // Update the date
+    newDate.setHours(newHour, newDate.getMinutes(), 0, 0) // Reset seconds and milliseconds
+    console.log('Hour decremented:', currentHour, '→', newHour, 'Full time:', newDate.toLocaleTimeString())
     handleDateChange(newDate)
-  }
+  }, [date, handleDateChange])
+
+  const incrementMinute = useCallback(() => {
+    // Mark as internal change first
+    isInternalChangeRef.current = true
+
+    const newDate = new Date(date.getTime())
+    const currentMinute = newDate.getMinutes()
+    const newMinute = (currentMinute + 1) % 60
+
+    newDate.setMinutes(newMinute, 0, 0) // Reset seconds and milliseconds
+    console.log('Minute incremented:', currentMinute, '→', newMinute, 'Full time:', newDate.toLocaleTimeString())
+    handleDateChange(newDate)
+  }, [date, handleDateChange])
+
+  const decrementMinute = useCallback(() => {
+    // Mark as internal change first
+    isInternalChangeRef.current = true
+
+    const newDate = new Date(date.getTime())
+    const currentMinute = newDate.getMinutes()
+    const newMinute = (currentMinute - 1 + 60) % 60
+
+    newDate.setMinutes(newMinute, 0, 0) // Reset seconds and milliseconds
+    console.log('Minute decremented:', currentMinute, '→', newMinute, 'Full time:', newDate.toLocaleTimeString())
+    handleDateChange(newDate)
+  }, [date, handleDateChange])
+
+  // AM/PM toggle functions
+  const toggleToAM = useCallback(() => {
+    // Mark as internal change first
+    isInternalChangeRef.current = true
+
+    const newDate = new Date(date.getTime())
+    const currentHour = newDate.getHours()
+
+    if (currentHour >= 12) {
+      const newHour = currentHour - 12
+      newDate.setHours(newHour, newDate.getMinutes(), 0, 0) // Reset seconds and milliseconds
+      console.log('Switched to AM:', currentHour, '→', newHour, 'Full time:', newDate.toLocaleTimeString())
+      handleDateChange(newDate)
+    }
+  }, [date, handleDateChange])
+
+  const toggleToPM = useCallback(() => {
+    // Mark as internal change first
+    isInternalChangeRef.current = true
+
+    const newDate = new Date(date.getTime())
+    const currentHour = newDate.getHours()
+
+    if (currentHour < 12) {
+      const newHour = currentHour + 12
+      newDate.setHours(newHour, newDate.getMinutes(), 0, 0) // Reset seconds and milliseconds
+      console.log('Switched to PM:', currentHour, '→', newHour, 'Full time:', newDate.toLocaleTimeString())
+      handleDateChange(newDate)
+    }
+  }, [date, handleDateChange])
 
   // Quick date selections
-  const setToTomorrow = () => {
+  const setToTomorrow = useCallback(() => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     tomorrow.setHours(9, 0, 0, 0)
     handleDateChange(tomorrow)
     setIsOpen(false)
-  }
+  }, [handleDateChange])
 
-  const setToNextWeek = () => {
+  const setToNextWeek = useCallback(() => {
     const nextWeek = new Date()
     nextWeek.setDate(nextWeek.getDate() + 7)
     nextWeek.setHours(9, 0, 0, 0)
     handleDateChange(nextWeek)
     setIsOpen(false)
-  }
+  }, [handleDateChange])
+
+  // Helper function to get 12-hour format display
+  const getDisplayHour = useCallback(() => {
+    const hour24 = date.getHours()
+    const hour12 = hour24 % 12 || 12
+    return hour12.toString().padStart(2, '0')
+  }, [date])
+
+  // Helper function to get AM/PM
+  const getAmPm = useCallback(() => {
+    return date.getHours() >= 12 ? 'PM' : 'AM'
+  }, [date])
+
+  // Helper function to get formatted minutes
+  const getDisplayMinutes = useCallback(() => {
+    return date.getMinutes().toString().padStart(2, '0')
+  }, [date])
 
   return (
     <div className="relative" ref={containerRef}>
@@ -334,79 +428,32 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            // Get current 24-hour format hour
-                            const currentHour24 = date.getHours();
-                            // Calculate if we're in AM or PM
-                            const isPM = currentHour24 >= 12;
-                            // Get current hour in 12-hour format
-                            const currentHour12 = currentHour24 % 12 || 12;
-
-                            // Calculate new hour in 12-hour format (increment by 1)
-                            let newHour12 = currentHour12 + 1;
-                            if (newHour12 > 12) newHour12 = 1;
-
-                            // Convert back to 24-hour format
-                            let newHour24;
-                            if (isPM) {
-                              newHour24 = newHour12 === 12 ? 12 : newHour12 + 12;
-                            } else {
-                              newHour24 = newHour12 === 12 ? 0 : newHour12;
-                            }
-
-                            console.log('Hour increment: Current:', currentHour24, 'New:', newHour24);
-                            handleHourChange(newHour24);
-                          }}
+                          onClick={incrementHour}
                           className={cn(
                             "p-2 rounded-full transition-colors",
                             isDark ? "hover:bg-white/10 text-white/80" : "hover:bg-black/10 text-black/80"
                           )}
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 5L12 19M12 5L6 11M12 5L18 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                          <ChevronUp className="w-5 h-5" />
                         </motion.button>
                         <div className={cn(
-                          "w-14 h-14 flex items-center justify-center rounded-lg text-2xl font-medium my-1",
-                          isDark ? "bg-white/10 text-white" : "bg-black/10 text-black"
+                          "w-14 h-14 flex items-center justify-center rounded-lg text-2xl font-medium my-1 transition-all duration-200",
+                          isUpdating
+                            ? (isDark ? "bg-blue-500/20 text-blue-300 scale-105" : "bg-blue-100 text-blue-700 scale-105")
+                            : (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black")
                         )}>
-                          {/* Display hour in 12-hour format */}
-                          {(date.getHours() % 12 || 12).toString().padStart(2, '0')}
+                          {getDisplayHour()}
                         </div>
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            // Get current 24-hour format hour
-                            const currentHour24 = date.getHours();
-                            // Calculate if we're in AM or PM
-                            const isPM = currentHour24 >= 12;
-                            // Get current hour in 12-hour format
-                            const currentHour12 = currentHour24 % 12 || 12;
-
-                            // Calculate new hour in 12-hour format (decrement by 1)
-                            let newHour12 = currentHour12 - 1;
-                            if (newHour12 < 1) newHour12 = 12;
-
-                            // Convert back to 24-hour format
-                            let newHour24;
-                            if (isPM) {
-                              newHour24 = newHour12 === 12 ? 12 : newHour12 + 12;
-                            } else {
-                              newHour24 = newHour12 === 12 ? 0 : newHour12;
-                            }
-
-                            console.log('Hour decrement: Current:', currentHour24, 'New:', newHour24);
-                            handleHourChange(newHour24);
-                          }}
+                          onClick={decrementHour}
                           className={cn(
                             "p-2 rounded-full transition-colors",
                             isDark ? "hover:bg-white/10 text-white/80" : "hover:bg-black/10 text-black/80"
                           )}
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 19L12 5M12 19L6 13M12 19L18 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                          <ChevronDown className="w-5 h-5" />
                         </motion.button>
                       </div>
 
@@ -420,52 +467,32 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            // Get current minutes
-                            const currentMinutes = date.getMinutes();
-
-                            // Increment by 1 minute
-                            let newMinutes = (currentMinutes + 1) % 60;
-
-                            console.log('Minute increment: Current:', currentMinutes, 'New:', newMinutes);
-                            handleMinuteChange(newMinutes);
-                          }}
+                          onClick={incrementMinute}
                           className={cn(
                             "p-2 rounded-full transition-colors",
                             isDark ? "hover:bg-white/10 text-white/80" : "hover:bg-black/10 text-black/80"
                           )}
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 5L12 19M12 5L6 11M12 5L18 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                          <ChevronUp className="w-5 h-5" />
                         </motion.button>
                         <div className={cn(
-                          "w-14 h-14 flex items-center justify-center rounded-lg text-2xl font-medium my-1",
-                          isDark ? "bg-white/10 text-white" : "bg-black/10 text-black"
+                          "w-14 h-14 flex items-center justify-center rounded-lg text-2xl font-medium my-1 transition-all duration-200",
+                          isUpdating
+                            ? (isDark ? "bg-blue-500/20 text-blue-300 scale-105" : "bg-blue-100 text-blue-700 scale-105")
+                            : (isDark ? "bg-white/10 text-white" : "bg-black/10 text-black")
                         )}>
-                          {date.getMinutes().toString().padStart(2, '0')}
+                          {getDisplayMinutes()}
                         </div>
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            // Get current minutes
-                            const currentMinutes = date.getMinutes();
-
-                            // Decrement by 1 minute
-                            let newMinutes = (currentMinutes - 1 + 60) % 60;
-
-                            console.log('Minute decrement: Current:', currentMinutes, 'New:', newMinutes);
-                            handleMinuteChange(newMinutes);
-                          }}
+                          onClick={decrementMinute}
                           className={cn(
                             "p-2 rounded-full transition-colors",
                             isDark ? "hover:bg-white/10 text-white/80" : "hover:bg-black/10 text-black/80"
                           )}
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 19L12 5M12 19L6 13M12 19L18 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                          <ChevronDown className="w-5 h-5" />
                         </motion.button>
                       </div>
                     </motion.div>
@@ -480,17 +507,10 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          const currentHour = date.getHours();
-                          if (currentHour >= 12) {
-                            // Switch from PM to AM (subtract 12 hours)
-                            const newHour = currentHour - 12;
-                            handleHourChange(newHour);
-                          }
-                        }}
+                        onClick={toggleToAM}
                         className={cn(
                           "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                          date.getHours() < 12
+                          getAmPm() === 'AM'
                             ? (isDark ? "bg-white/20 text-white" : "bg-black/20 text-black")
                             : (isDark ? "hover:bg-white/10 text-white/60" : "hover:bg-black/10 text-black/60")
                         )}
@@ -500,17 +520,10 @@ export function DateTimePicker({ value, onChange, isDark = false }: DateTimePick
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          const currentHour = date.getHours();
-                          if (currentHour < 12) {
-                            // Switch from AM to PM (add 12 hours)
-                            const newHour = currentHour + 12;
-                            handleHourChange(newHour);
-                          }
-                        }}
+                        onClick={toggleToPM}
                         className={cn(
                           "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                          date.getHours() >= 12
+                          getAmPm() === 'PM'
                             ? (isDark ? "bg-white/20 text-white" : "bg-black/20 text-black")
                             : (isDark ? "hover:bg-white/10 text-white/60" : "hover:bg-black/10 text-black/60")
                         )}

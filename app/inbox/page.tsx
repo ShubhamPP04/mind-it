@@ -9,6 +9,7 @@ import { BackgroundPaths } from "@/components/ui/background-paths"
 import { Navbar } from "../components/ui/navbar"
 import { Inbox, ArrowLeft, Clock, Check, Bell, Calendar, Filter, Trash2 } from 'lucide-react'
 import { DateTimePicker } from '../components/ui/date-time-picker'
+import { formatScheduledDate } from '../utils/dateUtils'
 
 interface InboxMessage {
   id: string
@@ -179,13 +180,8 @@ export default function InboxPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    })
+    // Use the utility function for consistent formatting
+    return formatScheduledDate(dateString)
   }
 
   if (loading) {

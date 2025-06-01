@@ -10,6 +10,7 @@ import { BackgroundPaths } from "@/components/ui/background-paths"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { LayoutGrid, List, LogOut, MessageSquarePlus, PlusCircle, Edit2, Trash2, Sparkles, X, Calendar, Wand2, LinkIcon, FileText, File, Boxes, Box, PanelLeftClose, PanelLeftOpen, Paintbrush, ImageIcon, Inbox, Clock } from 'lucide-react' // Import new icons
 import { DateTimePicker } from '../components/ui/date-time-picker'
+import { createStorageDate } from '../utils/dateUtils'
 import { generateNoteContent } from '@/utils/gemini'
 import { generateOpenRouterContent } from '@/utils/openrouter'
 import { ModelSelector, type Model } from '@/components/ui/model-selector'
@@ -882,12 +883,12 @@ export default function Dashboard() {
             return
           }
 
-          // Convert the scheduled date string to a Date object
-          const scheduledDateTime = new Date(scheduledDate)
+          // Convert the scheduled date using our utility function to ensure consistency
+          const scheduledDateISO = createStorageDate(scheduledDate)
 
           const inboxData = {
             message: inboxMessage,
-            scheduled_date: scheduledDateTime.toISOString(),
+            scheduled_date: scheduledDateISO,
             user_id: user.id,
             space_id: selectedSpace.id,
             created_at: new Date().toISOString()
