@@ -104,11 +104,11 @@ export default function Dashboard() {
         }
       }
     }
-    // Default to Gemini 2.0 Flash if no stored model or error
+    // Default to Gemini 2.5 Flash if no stored model or error
     return {
       provider: 'gemini',
-      name: 'gemini-2.0-flash',
-      displayName: 'Gemini 2.0 Flash'
+      name: 'gemini-2.5-flash-preview-05-20',
+      displayName: 'Gemini 2.5 Flash'
     }
   })
   const [spaces, setSpaces] = useState<Space[]>([])

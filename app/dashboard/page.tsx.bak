@@ -81,8 +81,8 @@ export default function Dashboard() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [selectedModel, setSelectedModel] = useState<Model>({
     provider: 'gemini',
-    name: 'gemini-2.0-flash',
-    displayName: 'Gemini 2.0 Flash'
+    name: 'gemini-2.5-flash-preview-05-20',
+    displayName: 'Gemini 2.5 Flash'
   })
   const [spaces, setSpaces] = useState<Space[]>([])
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null)

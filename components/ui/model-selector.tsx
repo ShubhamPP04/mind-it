@@ -15,8 +15,8 @@ const models: Model[] = [
   // Gemini models
   {
     provider: 'gemini',
-    name: 'gemini-2.0-flash',
-    displayName: 'Gemini 2.0 Flash',
+    name: 'gemini-2.5-flash-preview-05-20',
+    displayName: 'Gemini 2.5 Flash',
     description: 'Latest multimodal model with next-gen features and improved capabilities'
   },
   // OpenRouter models
@@ -269,7 +269,7 @@ export function ModelSelector({ selectedModel, onModelChange, isDark, openRight 
                         <Sparkles className="w-2.5 h-2.5" />
                       </div>
                       <div className="font-medium">{model.displayName}</div>
-                      {model.name.includes('gemini-2.0') && (
+                      {model.name.includes('gemini-2.5-flash-preview') && (
                         <div className="flex gap-1">
                           <span className={cn(
                             "px-1.5 py-0.5 text-[10px] rounded-full",

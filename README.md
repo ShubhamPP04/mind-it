@@ -54,7 +54,7 @@ Mind-It features beautifully designed authentication pages with:
 Mind-It integrates with multiple AI models to provide intelligent assistance:
 
 ### Gemini Models
-- **Gemini 2.0 Flash**: Google's latest multimodal model with next-gen features
+- **Gemini 2.5 Flash**: Google's latest multimodal model with next-gen features
 
 ### OpenRouter Free Models
 - **Llama 4 Scout & Maverick**: Meta's latest Llama models optimized for different use cases
