@@ -85,6 +85,12 @@ const models: Model[] = [
     name: 'moonshotai/kimi-vl-a3b-thinking:free',
     displayName: 'Kimi VL A3B',
     description: 'Moonshot AI model with visual language capabilities'
+  },
+  {
+    provider: 'openrouter',
+    name: 'sarvamai/sarvam-m:free',
+    displayName: 'Sarvam AI Sarvam-M',
+    description: 'Sarvam AI model with free access'
   }
 ];
 
