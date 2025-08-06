@@ -6,12 +6,12 @@ if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash-preview-05-20",
+  model: "gemini-2.5-flash-lite",
   generationConfig: {
-    temperature: 0.8,
+    temperature: 0.7,
     topK: 40,
     topP: 0.95,
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
   },
 });
 
@@ -31,16 +31,17 @@ If the input contains saved content (indicated by [NOTE], [WEBSITE], or [DOCUMEN
 If no saved content is provided or if the question can't be answered using the saved content alone, provide a general response based on your knowledge.
 
 Guidelines:
-- Provide comprehensive, detailed responses with multiple paragraphs
-- Start each key point on a new line
-- Use double line breaks between paragraphs
+- Provide comprehensive, well-structured responses with proper formatting
+- Use **bold text** for important terms, headings, and key concepts
+- Start each new paragraph on a separate line with proper line breaks
+- Use double line breaks between paragraphs for better readability
 - Write thorough explanations with supporting details and examples
 - Include relevant background information and context
-- Aim for at least 4-6 paragraphs for substantive topics
+- Aim for at least 4-6 well-formatted paragraphs for substantive topics
 - Keep paragraphs well-developed but focused
 - Use your own words while accurately representing the source material
 - When citing sources, mention them naturally in your response
-- Respond in plain text without any formatting marks or symbols
+- Format your response with markdown-style formatting (bold, line breaks)
 
 ${prompt}`;
     } else {
@@ -52,16 +53,17 @@ If the input contains saved content (indicated by [NOTE], [WEBSITE], or [DOCUMEN
 If no saved content is provided or if the question can't be answered using the saved content alone, provide a general response based on your knowledge.
 
 Guidelines:
-- Provide comprehensive, detailed responses with multiple paragraphs
-- Start each key point on a new line
-- Use double line breaks between paragraphs
+- Provide comprehensive, well-structured responses with proper formatting
+- Use **bold text** for important terms, headings, and key concepts
+- Start each new paragraph on a separate line with proper line breaks
+- Use double line breaks between paragraphs for better readability
 - Write thorough explanations with supporting details and examples
 - Include relevant background information and context
-- Aim for at least 4-6 paragraphs for substantive topics
+- Aim for at least 4-6 well-formatted paragraphs for substantive topics
 - Keep paragraphs well-developed but focused
 - Use your own words while accurately representing the source material
 - When citing sources, mention them naturally in your response
-- Respond in plain text without any formatting marks or symbols
+- Format your response with markdown-style formatting (bold, line breaks)
 
 Input: ${prompt}`;
     }
@@ -74,16 +76,19 @@ Input: ${prompt}`;
 
     let response = result.response.text();
 
-    // Clean up the response
+    // Clean up the response while preserving formatting
     response = response
       .replace(/^(AI:|Assistant:|Response:|Note:|Requirements?:|Context:|Input:|Guidelines?:)/gim, '')
       .trim()
-      // Ensure proper line breaks (convert single newlines to double newlines)
+      // Ensure proper line breaks between sentences that end paragraphs
       .replace(/([.!?])\s*\n(?!\n)/g, '$1\n\n')
-      // Remove any bold formatting that might appear
-      .replace(/\*\*([^*\n]+)\*\*/g, '$1')
-      // Ensure paragraphs are properly separated
-      .replace(/\n{3,}/g, '\n\n');
+      // Preserve bold formatting with **text**
+      // Ensure paragraphs are properly separated (max 2 newlines)
+      .replace(/\n{3,}/g, '\n\n')
+      // Clean up any trailing whitespace
+      .replace(/[ \t]+$/gm, '')
+      // Ensure there's always a double line break after periods that should end paragraphs
+      .replace(/([.!?])\s+([A-Z])/g, '$1\n\n$2');
 
     return response;
 
