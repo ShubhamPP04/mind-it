@@ -8,10 +8,10 @@ const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash-preview-05-20",
   generationConfig: {
-    temperature: 0.7,
+    temperature: 0.8,
     topK: 40,
     topP: 0.95,
-    maxOutputTokens: 1024,
+    maxOutputTokens: 4096,
   },
 });
 
@@ -31,12 +31,16 @@ If the input contains saved content (indicated by [NOTE], [WEBSITE], or [DOCUMEN
 If no saved content is provided or if the question can't be answered using the saved content alone, provide a general response based on your knowledge.
 
 Guidelines:
+- Provide comprehensive, detailed responses with multiple paragraphs
 - Start each key point on a new line
 - Use double line breaks between paragraphs
-- Format 2-3 important points as bold using **bold text**
-- Keep paragraphs short and focused
+- Write thorough explanations with supporting details and examples
+- Include relevant background information and context
+- Aim for at least 4-6 paragraphs for substantive topics
+- Keep paragraphs well-developed but focused
 - Use your own words while accurately representing the source material
 - When citing sources, mention them naturally in your response
+- Respond in plain text without any formatting marks or symbols
 
 ${prompt}`;
     } else {
@@ -48,12 +52,16 @@ If the input contains saved content (indicated by [NOTE], [WEBSITE], or [DOCUMEN
 If no saved content is provided or if the question can't be answered using the saved content alone, provide a general response based on your knowledge.
 
 Guidelines:
+- Provide comprehensive, detailed responses with multiple paragraphs
 - Start each key point on a new line
 - Use double line breaks between paragraphs
-- Format 2-3 important points as bold using **bold text**
-- Keep paragraphs short and focused
+- Write thorough explanations with supporting details and examples
+- Include relevant background information and context
+- Aim for at least 4-6 paragraphs for substantive topics
+- Keep paragraphs well-developed but focused
 - Use your own words while accurately representing the source material
 - When citing sources, mention them naturally in your response
+- Respond in plain text without any formatting marks or symbols
 
 Input: ${prompt}`;
     }
@@ -66,21 +74,16 @@ Input: ${prompt}`;
 
     let response = result.response.text();
 
-    // Clean up the response while preserving formatting
+    // Clean up the response
     response = response
       .replace(/^(AI:|Assistant:|Response:|Note:|Requirements?:|Context:|Input:|Guidelines?:)/gim, '')
       .trim()
       // Ensure proper line breaks (convert single newlines to double newlines)
       .replace(/([.!?])\s*\n(?!\n)/g, '$1\n\n')
-      // Ensure proper bold formatting
-      .replace(/\*\*([^*\n]+)\*\*/g, '**$1**')
-      // Remove any extra spaces before bold markers
-      .replace(/\s+\*\*/g, ' **')
+      // Remove any bold formatting that might appear
+      .replace(/\*\*([^*\n]+)\*\*/g, '$1')
       // Ensure paragraphs are properly separated
       .replace(/\n{3,}/g, '\n\n');
-
-    // Add line break before each bold item
-    response = response.replace(/([^\n])\s*(\*\*[^*]+\*\*)/g, '$1\n\n$2');
 
     return response;
 
