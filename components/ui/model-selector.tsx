@@ -28,6 +28,12 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
+    name: 'openai/gpt-oss-20b:free',
+    displayName: 'GPT-OSS 20B',
+    description: 'OpenAI GPT-OSS 20B free-tier model'
+  },
+  {
+    provider: 'openrouter',
     name: 'z-ai/glm-4.5-air:free',
     displayName: 'GLM 4.5 Air',
     description: 'Z-AI GLM 4.5 Air model with free access'

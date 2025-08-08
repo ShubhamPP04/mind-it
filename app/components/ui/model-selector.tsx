@@ -24,6 +24,11 @@ const models: Model[] = [
   // OpenRouter models
   {
     provider: 'openrouter',
+    name: 'openai/gpt-oss-20b:free',
+    displayName: 'GPT-OSS 20B'
+  },
+  {
+    provider: 'openrouter',
     name: 'openrouter/optimus-alpha',
     displayName: 'Optimus Alpha'
   },
@@ -99,7 +104,7 @@ export function ModelSelector({ selectedModel, onModelChange, isDark = false }: 
               >
                 <div className="flex items-center justify-between">
                   <span>{model.displayName}</span>
-                  {model.name === 'gemini-2.5-flash-preview-05-20' && (
+                  {model.name === 'openai/gpt-oss-20b:free' && (
                     <span className={cn(
                       "px-1.5 py-0.5 text-[10px] rounded-full ml-2",
                       isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-500/10 text-green-600 border border-green-500/20"

@@ -112,11 +112,11 @@ export default function ChatPage() {
         }
       }
     }
-    // Default to Gemini 2.5 Flash if no stored model or error
+    // Default to OpenRouter GPT-OSS 20B (Free) if no stored model or error
     return {
-      provider: 'gemini',
-      name: 'gemini-2.5-flash-preview-05-20',
-      displayName: 'Gemini 2.5 Flash'
+      provider: 'openrouter',
+      name: 'openai/gpt-oss-20b:free',
+      displayName: 'GPT-OSS 20B'
     }
   })
   const supabase = createClient()
