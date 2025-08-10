@@ -148,6 +148,8 @@ export default function Dashboard() {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const longPressDuration = 500; // ms
   const [searchQuery, setSearchQuery] = useState("")
+  const [editingWebsiteId, setEditingWebsiteId] = useState<string | null>(null)
+  const [editingWebsiteTitle, setEditingWebsiteTitle] = useState('')
 
   // Mobile touch states for showing action buttons
   const [mobileActionsVisible, setMobileActionsVisible] = useState<{
@@ -1766,7 +1768,7 @@ export default function Dashboard() {
   }
 
   // Add this function near other handlers
-  const handleColorChange = async (itemId: string, color: string, type: 'note' | 'website' | 'document') => {
+  const handleColorChange = async (itemId: string, color: string, type: 'note' | 'note' | 'website' | 'document') => {
     try {
       const { error } = await supabase
         .from(type === 'note' ? 'notes' : type === 'website' ? 'websites' : 'documents')
@@ -1792,6 +1794,53 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error updating color:', error)
     }
+  }
+
+  // Function to handle website title updates
+  const handleUpdateWebsiteTitle = async (id: string, newTitle: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('websites')
+        .update({ title: newTitle })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+
+      // Update local state
+      setWebsites(websites.map(website => 
+        website.id === id ? { ...website, title: newTitle } : website
+      ))
+
+      // Update selected website if it's the one being edited
+      if (selectedWebsite?.id === id) {
+        setSelectedWebsite(prev => prev ? { ...prev, title: newTitle } : null)
+      }
+
+      // Clear editing state
+      setEditingWebsiteId(null)
+      setEditingWebsiteTitle('')
+      
+      setError(null)
+    } catch (error) {
+      console.error('Error updating website title:', error)
+      setError('Failed to update website title')
+    }
+  }
+
+  // Function to start editing a website title
+  const startEditingWebsiteTitle = (website: Website) => {
+    setEditingWebsiteId(website.id)
+    setEditingWebsiteTitle(website.title)
+  }
+
+  // Function to cancel editing a website title
+  const cancelEditingWebsiteTitle = () => {
+    setEditingWebsiteId(null)
+    setEditingWebsiteTitle('')
   }
 
   const handleImageUpload = async (file: File) => {
@@ -2141,11 +2190,15 @@ export default function Dashboard() {
   useEffect(() => {
     const handleClickOutside = () => {
       hideAllMobileActions()
+      // Cancel website title editing when clicking outside
+      if (editingWebsiteId) {
+        cancelEditingWebsiteTitle();
+      }
     }
 
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
-  }, [])
+  }, [editingWebsiteId])
 
   // Hide mobile actions when changing tabs or selection mode
   useEffect(() => {
@@ -3386,12 +3439,37 @@ export default function Dashboard() {
 
                           <div className="flex items-start justify-between">
                             <div>
-                              <h3 className={cn(
-                                "text-lg font-medium line-clamp-1",
-                                isDark ? "text-white/90" : "text-black/90"
-                              )}>
-                                {website.title}
-                              </h3>
+                              {editingWebsiteId === website.id ? (
+                                <input
+                                  type="text"
+                                  value={editingWebsiteTitle}
+                                  onChange={(e) => setEditingWebsiteTitle(e.target.value)}
+                                  className={cn(
+                                    "text-lg font-medium w-full px-2 py-1 rounded border mb-1",
+                                    isDark 
+                                      ? "bg-black/80 border-white/20 text-white/90" 
+                                      : "bg-white border-black/20 text-black/90"
+                                  )}
+                                  autoFocus
+                                  onBlur={() => handleUpdateWebsiteTitle(website.id, editingWebsiteTitle)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleUpdateWebsiteTitle(website.id, editingWebsiteTitle);
+                                    } else if (e.key === 'Escape') {
+                                      cancelEditingWebsiteTitle();
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <h3 
+                                  className={cn(
+                                    "text-lg font-medium line-clamp-1",
+                                    isDark ? "text-white/90" : "text-black/90"
+                                  )}
+                                >
+                                  {website.title}
+                                </h3>
+                              )}
                               <a
                                 href={website.url}
                                 target="_blank"
@@ -3454,6 +3532,23 @@ export default function Dashboard() {
                               >
                                 <Paintbrush className="w-4 h-4" />
                               </button>
+                              {/* Edit title button */}
+                              {editingWebsiteId !== website.id && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditingWebsiteTitle(website);
+                                  }}
+                                  className={cn(
+                                    "p-1 rounded-lg transition-colors pointer-events-auto",
+                                    isDark
+                                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                                      : "hover:bg-black/10 text-black/60 hover:text-black"
+                                  )}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
